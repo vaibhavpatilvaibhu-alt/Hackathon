@@ -24,6 +24,30 @@ Campus operations often suffer from departmental silos, slow ticketing resolutio
 
 ---
 
+## 🎯 Smart Campus Solutions: Alignment with Problem Statement
+
+### 🔴 The Core Problem
+Campus incidents may be reported late, important information may be scattered across disparate systems, and administrators often lack a unified view of incidents and response progress.
+
+### 🟢 The Proposed Solution
+CampusGuardian AI provides a single, centralized platform for reporting incidents, prioritizing response operations, communicating verified campus alerts, and tracking resolution end-to-end.
+
+### 🔗 Mapping Features to the Solution
+* **Student Incident Reporting**: Empowers students to file reports effortlessly in a mobile-friendly interface.
+* **AI-Assisted Categorization**: Uses AI to suggest priorities and categorize issues instantly, speeding up triage.
+* **Centralized Admin Dashboard**: Gives administrators a unified view to manage all incidents across campus.
+* **Persistent History**: Keeps an immutable timeline of status updates, actions, and audit logs.
+* **Disaster Indicator**: Issues clear, top-level broadcasts with explicit instructions and affected-area details.
+* **Student Visibility**: Allows students to track the progress of their submitted reports.
+
+### 📊 Measurable Evaluation Metrics (Proposed for Live Deployment)
+1. **Report-Processing Time**: The time from student submission to administrator assignment.
+2. **Classification Accuracy**: Success rate of AI categorization against a labelled historical dataset.
+3. **Workflow Completion Rate**: Percentage of reports that move from "Submitted" to "Resolved".
+4. **API Response Time**: Server latency and stability under concurrent user load.
+
+---
+
 ## 🏗️ System Architecture
 
 ```mermaid

@@ -103,6 +103,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_reports_student ON reports(student_email);
   CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
   CREATE INDEX IF NOT EXISTS idx_reports_priority ON reports(priority);
+  CREATE INDEX IF NOT EXISTS idx_reports_category ON reports(category);
+  CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at DESC);
   CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status);
   CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
   CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_logs(timestamp);
@@ -513,7 +515,11 @@ function getAllReports(filters = {}) {
     params.push(term, term, term, term);
   }
 
-  query += ' ORDER BY created_at DESC';
+  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  const limit = parseInt(filters.limit, 10) || 100;
+  const offset = parseInt(filters.offset, 10) || 0;
+  params.push(limit, offset);
+
   const stmt = db.prepare(query);
   const rows = stmt.all(...params);
   return rows.map(parseReport);
@@ -537,7 +543,11 @@ function getReportsByStudent(studentEmail, filters = {}) {
     params.push(term, term, term);
   }
 
-  query += ' ORDER BY created_at DESC';
+  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  const limit = parseInt(filters.limit, 10) || 100;
+  const offset = parseInt(filters.offset, 10) || 0;
+  params.push(limit, offset);
+
   const stmt = db.prepare(query);
   const rows = stmt.all(...params);
   return rows.map(parseReport);
