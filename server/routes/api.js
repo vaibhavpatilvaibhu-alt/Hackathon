@@ -1,107 +1,478 @@
+/**
+ * CampusGuardian AI - Express API Router
+ * Secure backend with persistent SQLite database, RBAC authorization,
+ * session management, disaster alert lifecycle, and AI incident triage.
+ */
+
 const express = require('express');
 const router = express.Router();
+const dbService = require('../services/db');
 const { analyzeIssue, chatWithAssistant } = require('../services/aiService');
 
-// In-memory reports store seeded with realistic initial campus data
-let reportsStore = [
-  {
-    id: 'CG-2026-1001',
-    createdAt: '2026-10-07T08:15:00.000Z',
-    description: 'The staircase light near Block C has been broken for three days and it is very dark at night.',
-    location: 'Block C - Staircase 2nd Floor',
-    category: 'Safety',
-    priority: 'High',
-    department: 'Facilities Management & Maintenance',
-    summary: 'Broken lighting near Block C staircase creating nocturnal fall hazard',
-    recommendedAction: 'Inspect electrical fixture, replace ballast/LED bulb, verify ambient illumination',
-    confidence: 94,
-    status: 'In Progress',
-    reporter: 'Student (vaibhav.p@campus.edu)',
-    assignedStaff: 'Officer M. Davies (Facilities)',
-    timeline: [
-      { status: 'Submitted', timestamp: '2026-10-07T08:15:00.000Z', note: 'Logged via CampusGuardian AI' },
-      { status: 'Under Review', timestamp: '2026-10-07T09:00:00.000Z', note: 'AI triage verified by Ops Center' },
-      { status: 'In Progress', timestamp: '2026-10-07T11:30:00.000Z', note: 'Work Order #WO-8912 issued' }
-    ]
-  },
-  {
-    id: 'CG-2026-1002',
-    createdAt: '2026-10-07T11:45:00.000Z',
-    description: 'Wheelchair access ramp at North Library entrance is obstructed by heavy delivery crates and construction signage.',
-    location: 'Central Library - North Ramp Entrance',
-    category: 'Accessibility',
-    priority: 'Critical',
-    department: 'Disability & Accessibility Infrastructure',
-    summary: 'Wheelchair accessibility ramp obstructed by heavy cargo',
-    recommendedAction: 'Immediate dispatch to clear obstruction, inspect slope compliance, and notify campus security.',
-    confidence: 98,
-    status: 'Assigned',
-    reporter: 'Student (ananya.s@campus.edu)',
-    assignedStaff: 'Accessibility Team (J. Miller)',
-    timeline: [
-      { status: 'Submitted', timestamp: '2026-10-07T11:45:00.000Z', note: 'Reported via Accessibility Quick Form' },
-      { status: 'Assigned', timestamp: '2026-10-07T12:05:00.000Z', note: 'Priority escalated to Critical' }
-    ]
-  },
-  {
-    id: 'CG-2026-1003',
-    createdAt: '2026-10-06T15:20:00.000Z',
-    description: 'Overhead projector in Science Hall 302 won\'t recognize HDMI or USB-C inputs during lecture, causing class delays.',
-    location: 'Science Complex - Lecture Hall 302',
-    category: 'IT/Cybersecurity',
-    priority: 'Medium',
-    department: 'Campus IT & Audiovisual Infrastructure',
-    summary: 'Lecture hall 302 projector input signal failure',
-    recommendedAction: 'Replace AV matrix switcher cable and perform firmware test on controller.',
-    confidence: 91,
-    status: 'Resolved',
-    reporter: 'Faculty (Prof. Sterling)',
-    assignedStaff: 'IT Support Desk (Tech Alex)',
-    timeline: [
-      { status: 'Submitted', timestamp: '2026-10-06T15:20:00.000Z', note: 'Report submitted' },
-      { status: 'In Progress', timestamp: '2026-10-06T16:00:00.000Z', note: 'HDMI dongle replaced' },
-      { status: 'Resolved', timestamp: '2026-10-06T17:15:00.000Z', note: 'Audio/video tested successfully' }
-    ]
-  },
-  {
-    id: 'CG-2026-1004',
-    createdAt: '2026-10-08T09:10:00.000Z',
-    description: 'High-pressure water pipe leaking under hand wash sink in Ground Floor Restroom of Engineering Wing B.',
-    location: 'Engineering Wing B - Ground Floor Washroom',
-    category: 'Maintenance',
-    priority: 'High',
-    department: 'Facilities Management & Maintenance',
-    summary: 'Plumbing leak under washroom sink risking floor water damage',
-    recommendedAction: 'Shut off isolation valve and replace fractured coupling.',
-    confidence: 95,
-    status: 'Under Review',
-    reporter: 'Student (karan.m@campus.edu)',
-    assignedStaff: 'Pending Assignment',
-    timeline: [
-      { status: 'Submitted', timestamp: '2026-10-08T09:10:00.000Z', note: 'Logged with photo attachment' }
-    ]
-  },
-  {
-    id: 'CG-2026-1005',
-    createdAt: '2026-10-08T14:05:00.000Z',
-    description: 'Left blue Herschel backpack with engineering notebook and student ID card in Dining Commons booth 4.',
-    location: 'Campus Dining Commons - South Booth 4',
-    category: 'Lost & Found',
-    priority: 'Low',
-    department: 'Student Affairs & Property Custody',
-    summary: 'Lost blue Herschel backpack containing ID and notebook',
-    recommendedAction: 'Check dining staff custody log and tag in CampusGuardian Lost registry.',
-    confidence: 93,
-    status: 'Submitted',
-    reporter: 'Student (priya.k@campus.edu)',
-    assignedStaff: 'Desk Custodian',
-    timeline: [
-      { status: 'Submitted', timestamp: '2026-10-08T14:05:00.000Z', note: 'Item registered in database' }
-    ]
+// --- Middleware: Authentication & RBAC ---
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const session = dbService.getSession(token);
+    if (session) {
+      req.user = session;
+    }
   }
-];
+  next();
+}
 
-// Configurable Campus Emergency Contacts
+function requireAuth(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({
+      error: 'Authentication Required',
+      message: 'You must be logged in with a valid session to access this resource.'
+    });
+  }
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({
+      error: 'Authentication Required',
+      message: 'Valid administrator session required.'
+    });
+  }
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      error: 'Access Denied',
+      message: 'Administrator authorization required. Student accounts cannot perform this operation.'
+    });
+  }
+  next();
+}
+
+// Apply authMiddleware globally to router
+router.use(authMiddleware);
+
+// --- 1. Authentication Endpoints ---
+
+// POST /api/auth/login
+router.post('/auth/login', (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    const user = dbService.getUserByEmail(email.trim());
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    const isValid = dbService.verifyPassword(password, user.password_hash);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    // Configurable session duration (default 7 days / 168h)
+    const expiryHours = parseInt(process.env.SESSION_EXPIRY_HOURS, 10) || 168;
+    const session = dbService.createSession(user.id, user.role, expiryHours);
+
+    // Audit log
+    dbService.addAuditLog(user.email, user.role, 'USER_LOGIN', `User ${user.email} logged in successfully`, user.id);
+
+    res.json({
+      token: session.token,
+      expiresAt: session.expiresAt,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Authentication failed', details: err.message });
+  }
+});
+
+// GET /api/auth/me (Restore session)
+router.get('/auth/me', requireAuth, (req, res) => {
+  res.json({
+    user: {
+      id: req.user.user_id,
+      email: req.user.email,
+      name: req.user.name,
+      role: req.user.role
+    }
+  });
+});
+
+// POST /api/auth/logout
+router.post('/auth/logout', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    dbService.deleteSession(token);
+  }
+  res.json({ success: true, message: 'Logged out successfully.' });
+});
+
+// --- 2. Public Statistics & Overview (Safe for Welcome Page) ---
+router.get('/stats/public', (req, res) => {
+  try {
+    const stats = dbService.getSystemStats();
+    res.json({
+      totalReports: stats.totalReports,
+      resolvedReports: stats.resolvedReports,
+      inProgress: stats.inProgress,
+      activeAlerts: stats.activeAlerts,
+      resolutionRate: stats.totalReports > 0 ? Math.round((stats.resolvedReports / stats.totalReports) * 100) : 100
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve stats', details: err.message });
+  }
+});
+
+// GET /api/stats (Admin Only Detailed Telemetry)
+router.get('/stats', requireAdmin, (req, res) => {
+  try {
+    const stats = dbService.getSystemStats();
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve detailed stats', details: err.message });
+  }
+});
+
+// --- 3. Reports Endpoints (Role-Scoped) ---
+
+// GET /api/reports
+router.get('/reports', requireAuth, (req, res) => {
+  try {
+    const { status, priority, category, search } = req.query;
+    const filters = { status, priority, category, search };
+
+    let reports;
+    if (req.user.role === 'admin') {
+      // Administrators see all reports
+      reports = dbService.getAllReports(filters);
+    } else {
+      // Students see only their own reports
+      reports = dbService.getReportsByStudent(req.user.email, filters);
+    }
+
+    res.json(reports);
+  } catch (err) {
+    console.error('Error fetching reports:', err);
+    res.status(500).json({ error: 'Failed to fetch reports', details: err.message });
+  }
+});
+
+// GET /api/reports/export (Admin Only Export - defined before :id to prevent param match)
+router.get('/reports/export', requireAdmin, (req, res) => {
+  try {
+    const format = (req.query.format || 'csv').toLowerCase();
+    const reports = dbService.getAllReports();
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', 'attachment; filename="campusguardian-reports.json"');
+      return res.send(JSON.stringify(reports, null, 2));
+    }
+
+    // CSV format
+    const headers = [
+      'Report ID', 'Created At', 'Status', 'Priority', 'Category',
+      'Location', 'Department', 'Assigned Staff', 'Reporter',
+      'Summary', 'Description', 'Admin Notes', 'Resolution Details'
+    ];
+
+    const escapeCsv = (val) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""').replace(/\n/g, ' ');
+      return `"${str}"`;
+    };
+
+    const csvLines = [headers.join(',')];
+    for (const r of reports) {
+      csvLines.push([
+        escapeCsv(r.id),
+        escapeCsv(r.created_at),
+        escapeCsv(r.status),
+        escapeCsv(r.priority),
+        escapeCsv(r.category),
+        escapeCsv(r.location),
+        escapeCsv(r.department),
+        escapeCsv(r.assigned_staff),
+        escapeCsv(r.reporter_name),
+        escapeCsv(r.summary),
+        escapeCsv(r.description),
+        escapeCsv(r.admin_notes),
+        escapeCsv(r.resolution_details)
+      ].join(','));
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="campusguardian-reports.csv"');
+    res.send(csvLines.join('\n'));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export reports', details: err.message });
+  }
+});
+
+// GET /api/reports/:id
+router.get('/reports/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const report = dbService.getReportById(id);
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    // Authorization check
+    if (req.user.role !== 'admin' && report.student_email.toLowerCase() !== req.user.email.toLowerCase()) {
+      return res.status(403).json({ error: 'Access denied to this report.' });
+    }
+
+    res.json(report);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch report', details: err.message });
+  }
+});
+
+// POST /api/reports (Submit New Incident Report)
+router.post('/reports', requireAuth, (req, res) => {
+  try {
+    const {
+      description,
+      location,
+      title,
+      category,
+      priority,
+      department,
+      summary,
+      recommendedAction,
+      confidence,
+      imageUrl
+    } = req.body;
+
+    if (!description || !description.trim()) {
+      return res.status(400).json({ error: 'Incident description is required.' });
+    }
+    if (!location || !location.trim()) {
+      return res.status(400).json({ error: 'Campus location is required.' });
+    }
+
+    const reportData = {
+      description: description.trim(),
+      location: location.trim(),
+      title: title ? title.trim() : null,
+      category: category || 'Other',
+      priority: priority || 'Medium',
+      department: department || 'General Campus Operations',
+      summary: summary || description.trim().slice(0, 60),
+      recommendedAction: recommendedAction || 'Inspect and assess site condition.',
+      confidence: confidence || 90,
+      imageUrl: imageUrl || null
+    };
+
+    const newReport = dbService.createReport(reportData, req.user);
+    res.status(201).json(newReport);
+  } catch (err) {
+    console.error('Error creating report:', err);
+    res.status(500).json({ error: 'Failed to create report', details: err.message });
+  }
+});
+
+// PATCH /api/reports/:id (Admin Update Status / Assignment / Notes)
+router.patch('/reports/:id', requireAdmin, (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      status,
+      priority,
+      category,
+      department,
+      assignedStaff,
+      adminNotes,
+      resolutionDetails,
+      note
+    } = req.body;
+
+    const existing = dbService.getReportById(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    const updated = dbService.updateReport(id, {
+      status,
+      priority,
+      category,
+      department,
+      assignedStaff,
+      adminNotes,
+      resolutionDetails,
+      note
+    }, req.user);
+
+    res.json(updated);
+  } catch (err) {
+    console.error('Error updating report:', err);
+    res.status(500).json({ error: 'Failed to update report', details: err.message });
+  }
+});
+
+
+// --- 4. Disaster Indicator & Emergency Alerts ---
+
+// GET /api/alerts (Public or Authenticated)
+router.get('/alerts', (req, res) => {
+  try {
+    const activeOnly = req.query.activeOnly === 'true';
+    const alerts = dbService.getAlerts(activeOnly);
+    res.json(alerts);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch disaster alerts', details: err.message });
+  }
+});
+
+// POST /api/alerts (Admin Only Create / Broadcast)
+router.post('/alerts', requireAdmin, (req, res) => {
+  try {
+    const { title, category, severity, message, affectedArea, instructions } = req.body;
+
+    if (!title || !category || !severity || !message || !affectedArea) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        message: 'Title, category, severity, message, and affected area are required.'
+      });
+    }
+
+    const validCategories = [
+      'Earthquake', 'Fire', 'Flood', 'Severe Weather', 'Gas Leak',
+      'Medical Emergency', 'Security Threat', 'Other Campus Emergency'
+    ];
+    if (!validCategories.includes(category)) {
+      return res.status(400).json({ error: 'Invalid disaster category.' });
+    }
+
+    const validSeverities = ['Advisory', 'Warning', 'Critical'];
+    if (!validSeverities.includes(severity)) {
+      return res.status(400).json({ error: 'Invalid severity level (must be Advisory, Warning, or Critical).' });
+    }
+
+    const newAlert = dbService.createAlert({
+      title: title.trim(),
+      category,
+      severity,
+      message: message.trim(),
+      affectedArea: affectedArea.trim(),
+      instructions: (instructions || 'Follow official campus safety protocols.').trim()
+    }, req.user);
+
+    res.status(201).json(newAlert);
+  } catch (err) {
+    console.error('Error creating alert:', err);
+    res.status(500).json({ error: 'Failed to publish disaster alert', details: err.message });
+  }
+});
+
+// PATCH /api/alerts/:id (Admin Only Update or All-Clear)
+router.patch('/alerts/:id', requireAdmin, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, allClearNotes, title, category, severity, message, affectedArea, instructions } = req.body;
+
+    const existing = dbService.getAlertById(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Alert not found' });
+    }
+
+    const updated = dbService.updateAlert(id, {
+      status,
+      allClearNotes,
+      title,
+      category,
+      severity,
+      message,
+      affectedArea,
+      instructions
+    }, req.user);
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update alert', details: err.message });
+  }
+});
+
+// POST /api/alerts/:id/acknowledge (Student Acknowledges Safety Notice)
+router.post('/alerts/:id/acknowledge', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = dbService.acknowledgeAlert(id, req.user.email);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to acknowledge alert', details: err.message });
+  }
+});
+
+// GET /api/alerts/acknowledged (Get User's Acknowledged Alert IDs)
+router.get('/alerts/acknowledged', requireAuth, (req, res) => {
+  try {
+    const acknowledgedIds = dbService.getUserAcknowledgedAlerts(req.user.email);
+    res.json(acknowledgedIds);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch acknowledgements', details: err.message });
+  }
+});
+
+// --- 5. Audit Logging Endpoints (Admin Only) ---
+
+// GET /api/audit-logs
+router.get('/audit-logs', requireAdmin, (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 100;
+    const logs = dbService.getAuditLogs(limit);
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve audit logs', details: err.message });
+  }
+});
+
+// --- 6. AI Incident Analysis & Campus Assistant ---
+
+// POST /api/analyze (AI Triage)
+router.post('/analyze', async (req, res) => {
+  try {
+    const text = req.body.text || req.body.description;
+    const location = req.body.location || '';
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ error: 'Incident description text is required.' });
+    }
+
+    const analysis = await analyzeIssue(text.trim(), location.trim());
+    res.json(analysis);
+  } catch (err) {
+    console.error('Error analyzing issue:', err);
+    res.status(500).json({ error: 'Failed to analyze issue', details: err.message });
+  }
+});
+
+// POST /api/chat (GuardianBot Assistant)
+router.post('/chat', async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ error: 'Message cannot be empty.' });
+    }
+
+    const response = await chatWithAssistant(message.trim(), history || []);
+    res.json(response);
+  } catch (err) {
+    console.error('Error in chat assistant:', err);
+    res.status(500).json({ error: 'Failed to communicate with assistant', details: err.message });
+  }
+});
+
+// --- 7. Static Safety & Emergency Hotlines ---
 const EMERGENCY_CONTACTS = [
   {
     id: 'sec-rapid',
@@ -109,7 +480,7 @@ const EMERGENCY_CONTACTS = [
     phone: '555-0199',
     extension: 'Ext. 5555',
     available: '24/7 / 365 Days',
-    description: 'On-campus armed & unarmed safety patrol dispatch, emergency blue light response, and active escort services.',
+    description: 'On-campus patrol dispatch, emergency blue light tower response, and SafeWalk night escorts.',
     badge: 'Immediate Dispatch',
     category: 'Security'
   },
@@ -119,7 +490,7 @@ const EMERGENCY_CONTACTS = [
     phone: '555-0188',
     extension: 'Ext. 5556',
     available: '8:00 AM - 10:00 PM (Emergency on-call 24/7)',
-    description: 'First aid, minor trauma triage, emergency allergic reaction care, and paramedic escort coordination.',
+    description: 'First aid, minor trauma triage, emergency allergic reaction care, and municipal paramedic coordination.',
     badge: 'Medical EMT',
     category: 'Medical'
   },
@@ -129,7 +500,7 @@ const EMERGENCY_CONTACTS = [
     phone: '555-0177',
     extension: 'Ext. 5559',
     available: '24/7 Confidential',
-    description: 'Trained psychological first aid responders for distress, panic, trauma support, and student safety.',
+    description: 'Trained psychological first aid responders for acute distress, trauma support, and student safety.',
     badge: 'Confidential',
     category: 'Mental Health'
   },
@@ -145,7 +516,6 @@ const EMERGENCY_CONTACTS = [
   }
 ];
 
-// Safety Protocols
 const SAFETY_PROTOCOLS = [
   {
     id: 'proto-fire',
@@ -159,7 +529,7 @@ const SAFETY_PROTOCOLS = [
   },
   {
     id: 'proto-weather',
-    title: 'Severe Storm / Flash Flood Safety',
+    title: 'Severe Storm & Flash Flood Safety',
     steps: [
       'Move away from exterior glass windows and skylights into interior corridors.',
       'If on lower basement levels during flash flood alert, ascend to Level 2 or higher.',
@@ -170,9 +540,9 @@ const SAFETY_PROTOCOLS = [
     id: 'proto-medical',
     title: 'Medical Emergency First Response',
     steps: [
-      'Call Ext. 5556 or trigger Emergency SOS in CampusGuardian with your GPS room number.',
+      'Call Ext. 5556 or trigger Emergency SOS in CampusGuardian with your room number.',
       'Locate Automated External Defibrillator (AED) — available in every building lobby.',
-      'Do not move an injured person with potential spinal injuries unless immediate fire hazard exists.',
+      'Do not move an injured person with potential spinal injuries unless immediate hazard exists.',
       'Station someone at the building main entrance to guide EMT paramedics to the room.'
     ]
   },
@@ -187,7 +557,6 @@ const SAFETY_PROTOCOLS = [
   }
 ];
 
-// Accessibility Resources & Facilities Directory
 const ACCESSIBILITY_RESOURCES = {
   facilities: [
     {
@@ -195,7 +564,7 @@ const ACCESSIBILITY_RESOURCES = {
       name: 'Central Library North Ramp',
       type: 'Mobility Ramp',
       status: 'Attention Required',
-      notes: 'Obstruction reported today; crew actively clearing crates. South ramp fully operational.',
+      notes: 'Cargo obstruction reported; crew actively clearing pathway. South ramp fully operational.',
       accessibleRoute: 'Alternative: South Plaza automatic revolving door (Level 1)'
     },
     {
@@ -235,175 +604,39 @@ const ACCESSIBILITY_RESOURCES = {
     {
       title: 'Mobility & Wheelchair Assistance',
       description: 'Step-free campus route maps, automated power door maintenance, accessible golf cart escorts, and assistive shuttle scheduling.',
-      contact: 'mobility@aegis-campus.edu'
+      contact: 'mobility@campusguardian.demo'
     },
     {
       title: 'Visual & Sensory Support',
       description: 'Braille signage inspection, tactile pavement audit, screen-reader friendly syllabus transcription, and high-contrast facility maps.',
-      contact: 'visual-support@aegis-campus.edu'
+      contact: 'visual-support@campusguardian.demo'
     },
     {
       title: 'Deaf & Hard of Hearing Support',
       description: 'Real-time CART captioning services for lectures, sign language interpreter booking, and visual strobe alarm verification.',
-      contact: 'hearing-access@aegis-campus.edu'
+      contact: 'hearing-access@campusguardian.demo'
     },
     {
       title: 'Sensory & Neurodiversity Accommodations',
       description: 'Sensory decompression quiet pods located in Library 2nd floor and Student Pavilion 3rd floor.',
-      contact: 'neuro-wellness@aegis-campus.edu'
+      contact: 'neuro-wellness@campusguardian.demo'
     }
   ]
 };
 
-// 1. Analyze Issue Endpoint
-router.post('/analyze', async (req, res) => {
-  try {
-    const { text, location } = req.body;
-    if (!text || typeof text !== 'string' || !text.trim()) {
-      return res.status(400).json({ error: 'Issue description is required.' });
-    }
-
-    const analysis = await analyzeIssue(text.trim(), (location || '').trim());
-    res.json(analysis);
-  } catch (err) {
-    console.error('Error analyzing issue:', err);
-    res.status(500).json({ error: 'Failed to analyze issue', details: err.message });
-  }
-});
-
-// 2. Chatbot Endpoint
-router.post('/chat', async (req, res) => {
-  try {
-    const { message, history } = req.body;
-    if (!message || typeof message !== 'string' || !message.trim()) {
-      return res.status(400).json({ error: 'Message cannot be empty.' });
-    }
-
-    const response = await chatWithAssistant(message.trim(), history || []);
-    res.json(response);
-  } catch (err) {
-    console.error('Error in chat assistant:', err);
-    res.status(500).json({ error: 'Failed to communicate with assistant', details: err.message });
-  }
-});
-
-// 3. Get all reports
-router.get('/reports', (req, res) => {
-  res.json(reportsStore);
-});
-
-// 4. Create new report
-router.post('/reports', (req, res) => {
-  try {
-    const {
-      description,
-      location,
-      category,
-      priority,
-      department,
-      summary,
-      recommendedAction,
-      confidence,
-      imageUrl
-    } = req.body;
-
-    if (!description || !location) {
-      return res.status(400).json({ error: 'Description and location are required.' });
-    }
-
-    const uniqueId = `CG-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const now = new Date().toISOString();
-
-    const newReport = {
-      id: uniqueId,
-      createdAt: now,
-      description: description.trim(),
-      location: location.trim(),
-      category: category || 'Other',
-      priority: priority || 'Medium',
-      department: department || 'General Campus Operations',
-      summary: summary || description.slice(0, 50),
-      recommendedAction: recommendedAction || 'Inspect and address reported issue.',
-      confidence: confidence || 92,
-      status: 'Submitted',
-      imageUrl: imageUrl || null,
-      reporter: 'Student (Logged in user)',
-      assignedStaff: 'Pending Triage',
-      timeline: [
-        { status: 'Submitted', timestamp: now, note: 'Logged via CampusGuardian AI' }
-      ]
-    };
-
-    // Prepend to top of reports store
-    reportsStore.unshift(newReport);
-
-    res.status(201).json(newReport);
-  } catch (err) {
-    console.error('Error creating report:', err);
-    res.status(500).json({ error: 'Failed to create report', details: err.message });
-  }
-});
-
-// 5. Update report (for admin)
-router.patch('/reports/:id', (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, department, assignedStaff, note } = req.body;
-
-    const reportIndex = reportsStore.findIndex(r => r.id === id);
-    if (reportIndex === -1) {
-      return res.status(404).json({ error: 'Report not found' });
-    }
-
-    const report = reportsStore[reportIndex];
-    const now = new Date().toISOString();
-
-    if (status && status !== report.status) {
-      report.status = status;
-      report.timeline.push({
-        status,
-        timestamp: now,
-        note: note || `Status updated to ${status} by Administrator`
-      });
-    }
-
-    if (department) {
-      report.department = department;
-    }
-
-    if (assignedStaff) {
-      report.assignedStaff = assignedStaff;
-    }
-
-    reportsStore[reportIndex] = report;
-    res.json(report);
-  } catch (err) {
-    console.error('Error updating report:', err);
-    res.status(500).json({ error: 'Failed to update report', details: err.message });
-  }
-});
-
-// 6. Reset reports to demo state
-router.post('/reports/reset', (req, res) => {
-  // Can be called to reset demo
-  res.json({ message: 'Demo reports state retained' });
-});
-
-// 7. Emergency Contacts & Protocols
 router.get('/emergency', (req, res) => {
   res.json({
     contacts: EMERGENCY_CONTACTS,
     protocols: SAFETY_PROTOCOLS,
-    campusDisclaimer: 'DEMO CAMPUS EMERGENCY SYSTEM: For actual immediate off-campus life-threatening emergencies, always dial 911/112.'
+    campusDisclaimer: 'CAMPUS SAFETY NOTICE: This platform coordinates campus work orders and alerts. For immediate life-threatening emergencies, always dial municipal 911 / 112.'
   });
 });
 
-// 8. Accessibility Directory
 router.get('/accessibility', (req, res) => {
   res.json(ACCESSIBILITY_RESOURCES);
 });
 
-// 9. Health & System Status
+// --- 8. Health & System Status ---
 router.get('/health', (req, res) => {
   const hasGemini = Boolean(
     process.env.GEMINI_API_KEY &&
@@ -411,14 +644,22 @@ router.get('/health', (req, res) => {
     process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here'
   );
 
+  const stats = dbService.getSystemStats();
+
   res.json({
     status: 'healthy',
     service: 'CampusGuardian AI Backend',
+    tagline: 'A Safer Campus. A Smarter Response.',
+    database: 'SQLite (Persistent Storage node:sqlite DatabaseSync)',
     timestamp: new Date().toISOString(),
     aiEngine: {
       geminiConfigured: hasGemini,
       fallbackEngineActive: true,
       activeModel: hasGemini ? 'Gemini 2.0 Flash' : 'CampusGuardian RuleEngine (Active Offline)'
+    },
+    counts: {
+      reports: stats.totalReports,
+      activeAlerts: stats.activeAlerts
     }
   });
 });

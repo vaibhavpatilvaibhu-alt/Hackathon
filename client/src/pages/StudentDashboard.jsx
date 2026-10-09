@@ -1,359 +1,343 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useReports } from '../context/ReportsContext';
-import { CAMPUS_ANNOUNCEMENTS } from '../data/initialReports';
 import {
   FileText,
   Clock,
   AlertTriangle,
   CheckCircle,
   PlusCircle,
-  Bot,
   PhoneCall,
-  Accessibility,
   ArrowRight,
   MapPin,
   ChevronRight,
   ShieldCheck,
-  Eye,
-  Megaphone
+  Radio,
+  LogOut,
+  User,
+  ShieldAlert,
+  Sparkles,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
+import DisasterIndicatorBanner from '../components/DisasterIndicatorBanner';
+import ThemeSelector from '../components/ThemeSelector';
 
 export default function StudentDashboard() {
-  const { reports, setActiveTab } = useReports();
+  const {
+    reports,
+    setActiveTab,
+    currentUser,
+    logout,
+    activeAlerts,
+    refreshReports,
+    authToken
+  } = useReports();
+
   const [selectedReport, setSelectedReport] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Computed metrics
-  const totalReports = reports.length;
-  const pendingReports = reports.filter(r => r.status !== 'Resolved').length;
-  const criticalReports = reports.filter(r => r.priority === 'Critical').length;
-  const resolvedReports = reports.filter(r => r.status === 'Resolved').length;
+  // Sync reports from SQLite DB on mount
+  useEffect(() => {
+    if (authToken) {
+      refreshReports();
+    }
+  }, [authToken, refreshReports]);
 
-  const recentReports = reports.slice(0, 5);
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshReports();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const safeReports = Array.isArray(reports) ? reports : [];
+
+  // Computed metrics from real SQLite reports
+  const totalReports = safeReports.length;
+  const pendingReports = safeReports.filter(r => r.status !== 'Resolved' && r.status !== 'Closed').length;
+  const criticalReports = safeReports.filter(r => (r.priority || '') === 'Critical').length;
+  const resolvedReports = safeReports.filter(r => r.status === 'Resolved' || r.status === 'Closed').length;
+
+  const recentReports = safeReports.slice(0, 5);
 
   const getPriorityBadge = (priority) => {
     switch (priority) {
       case 'Critical':
-        return 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+        return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900';
       case 'High':
-        return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+        return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900';
       case 'Medium':
-        return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+        return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900';
       default:
-        return 'bg-slate-500/15 text-slate-300 border-slate-500/30';
+        return 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
     }
   };
 
   const getStatusBadge = (status) => {
     switch (status) {
       case 'Resolved':
-        return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+      case 'Closed':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900';
       case 'In Progress':
-        return 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30';
+        return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900';
       case 'Assigned':
-        return 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
+        return 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900';
       case 'Under Review':
-        return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+        return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900';
       default:
-        return 'bg-slate-500/15 text-slate-300 border-slate-500/30';
+        return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
     }
   };
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-6 pb-12">
+      {/* Active Disaster Indicator Banner */}
+      <DisasterIndicatorBanner />
+
       {/* Welcome Banner */}
-      <div className="p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-navy-900 via-slate-900 to-indigo-950/60 border border-slate-800 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <ShieldCheck className="w-4 h-4" />
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="p-1 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900">
+              <ShieldCheck className="w-3.5 h-3.5" />
             </span>
-            <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-              Aegis Campus Safety Status: Normal Active Operations
+            <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+              Student Incident Portal • Authenticated Session
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Student Incident Dashboard</h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
-            Track reported campus infrastructure repairs, safety observations, and accessibility requests in real-time.
+
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            Welcome, {currentUser ? currentUser.name : 'Student Member'}
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
+            Logged in as <code className="text-blue-600 dark:text-blue-400 font-mono">{currentUser?.email || 'student@campusguardian.demo'}</code>. Submit hazard reports, track repair work orders, and review campus safety notices.
           </p>
         </div>
 
-        {/* Quick New Report Action */}
-        <button
-          onClick={() => setActiveTab('report')}
-          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs sm:text-sm shadow-glow-blue transition active:scale-95 flex-shrink-0"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Report New Campus Issue</span>
-        </button>
+        {/* Quick Actions */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <ThemeSelector />
+
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition"
+            title="Refresh database records"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-blue-600' : ''}`} />
+          </button>
+
+          <button
+            onClick={() => setActiveTab('report')}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Report Campus Issue</span>
+          </button>
+
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition border border-slate-200 dark:border-slate-800"
+            title="Sign out of student account"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+        </div>
       </div>
 
       {/* 4 Core Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total */}
-        <div className="p-5 rounded-2xl glass-panel relative overflow-hidden group">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-slate-400">Total Reports</span>
-            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 group-hover:scale-110 transition">
+        {/* Total Submitted */}
+        <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">My Reports</span>
+            <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
               <FileText className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-white">{totalReports}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Campus wide records</p>
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{totalReports}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Stored in SQLite</p>
         </div>
 
-        {/* Pending */}
-        <div className="p-5 rounded-2xl glass-panel relative overflow-hidden group">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-slate-400">Pending Actions</span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 group-hover:scale-110 transition">
+        {/* Active / In Progress */}
+        <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">In Progress</span>
+            <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400">
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-amber-400">{pendingReports}</p>
-          <p className="text-[11px] text-slate-400 mt-1">Under review & dispatch</p>
-        </div>
-
-        {/* Critical */}
-        <div className="p-5 rounded-2xl glass-panel relative overflow-hidden group">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-slate-400">Critical Priority</span>
-            <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 group-hover:scale-110 transition">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-rose-400">{criticalReports}</p>
-          <p className="text-[11px] text-rose-300 mt-1">Urgent response queued</p>
+          <p className="text-2xl font-bold text-amber-600 dark:text-amber-500">{pendingReports}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Under campus review</p>
         </div>
 
         {/* Resolved */}
-        <div className="p-5 rounded-2xl glass-panel relative overflow-hidden group">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-slate-400">Resolved</span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 group-hover:scale-110 transition">
+        <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Resolved</span>
+            <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
               <CheckCircle className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-3xl font-bold text-emerald-400">{resolvedReports}</p>
-          <p className="text-[11px] text-emerald-300 mt-1">Successfully addressed</p>
+          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-500">{resolvedReports}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Repairs completed</p>
+        </div>
+
+        {/* Disaster Alerts */}
+        <div
+          onClick={() => setActiveTab('disaster-indicator')}
+          className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm cursor-pointer hover:border-red-300 transition"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Disaster Alerts</span>
+            <div className="p-1.5 rounded-lg bg-red-50 dark:bg-red-950/60 text-red-600 dark:text-red-400">
+              <Radio className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-red-600 dark:text-red-500">{activeAlerts.length}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Active broadcast notices</p>
         </div>
       </div>
 
-      {/* Quick Action Matrix */}
-      <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Quick Actions</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <button
-            onClick={() => setActiveTab('report')}
-            className="p-4 rounded-xl bg-slate-900/70 hover:bg-slate-800 border border-slate-800 hover:border-blue-500/50 text-left transition group"
-          >
-            <div className="p-2 w-fit rounded-lg bg-blue-500/10 text-blue-400 mb-2 group-hover:scale-105 transition">
-              <PlusCircle className="w-4 h-4" />
-            </div>
-            <p className="text-xs font-bold text-white">Report An Issue</p>
-            <p className="text-[11px] text-slate-400">AI auto-triage & dispatch</p>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('assistant')}
-            className="p-4 rounded-xl bg-slate-900/70 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/50 text-left transition group"
-          >
-            <div className="p-2 w-fit rounded-lg bg-indigo-500/10 text-indigo-400 mb-2 group-hover:scale-105 transition">
-              <Bot className="w-4 h-4" />
-            </div>
-            <p className="text-xs font-bold text-white">Ask AI Assistant</p>
-            <p className="text-[11px] text-slate-400">Campus knowledge base</p>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('emergency')}
-            className="p-4 rounded-xl bg-slate-900/70 hover:bg-slate-800 border border-slate-800 hover:border-rose-500/50 text-left transition group"
-          >
-            <div className="p-2 w-fit rounded-lg bg-rose-500/10 text-rose-400 mb-2 group-hover:scale-105 transition">
-              <PhoneCall className="w-4 h-4" />
-            </div>
-            <p className="text-xs font-bold text-white">Emergency Center</p>
-            <p className="text-[11px] text-slate-400">24/7 Security & Hotlines</p>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('accessibility')}
-            className="p-4 rounded-xl bg-slate-900/70 hover:bg-slate-800 border border-slate-800 hover:border-purple-500/50 text-left transition group"
-          >
-            <div className="p-2 w-fit rounded-lg bg-purple-500/10 text-purple-400 mb-2 group-hover:scale-105 transition">
-              <Accessibility className="w-4 h-4" />
-            </div>
-            <p className="text-xs font-bold text-white">Accessibility Center</p>
-            <p className="text-[11px] text-slate-400">Ramps, lifts & escorts</p>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Grid: Recent Reports Feed & Announcements */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Reports (2 Columns) */}
+      {/* Main Grid: My Recent Reports & Quick Campus Safety Hub */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Recent Reports (2 cols) */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <span>Recent Campus Reports</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-normal">
-                {reports.length} total
-              </span>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide flex items-center gap-2">
+              <FileText className="w-4 h-4 text-blue-600" />
+              <span>Recent Incident Reports ({safeReports.length})</span>
             </h2>
+
             <button
               onClick={() => setActiveTab('my-reports')}
-              className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
+              className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
             >
               <span>View All Reports</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="space-y-3">
-            {recentReports.map((report) => (
-              <div
-                key={report.id}
-                onClick={() => setSelectedReport(report)}
-                className="p-4 rounded-2xl glass-panel-interactive cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
-              >
-                <div className="space-y-1.5 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-mono font-bold text-blue-400">{report.id}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold ${getPriorityBadge(report.priority)}`}>
-                      {report.priority}
-                    </span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold ${getStatusBadge(report.status)}`}>
-                      {report.status}
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      {report.category}
-                    </span>
+          {recentReports.length > 0 ? (
+            <div className="space-y-3">
+              {recentReports.map((report) => (
+                <div
+                  key={report.id}
+                  onClick={() => setActiveTab('my-reports')}
+                  className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-900 transition shadow-sm cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4 group"
+                >
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">
+                        {report.id}
+                      </span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border uppercase ${getPriorityBadge(report.priority)}`}>
+                        {report.priority}
+                      </span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${getStatusBadge(report.status)}`}>
+                        {report.status}
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        {report.category}
+                      </span>
+                    </div>
+
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                      {report.summary || report.title || report.description}
+                    </h3>
+
+                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                      <MapPin className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                      <span>{report.location}</span>
+                      <span>•</span>
+                      <span>{new Date(report.createdAt || report.created_at || Date.now()).toLocaleDateString()}</span>
+                    </div>
+
+                    {(report.adminNotes || report.admin_notes) && (
+                      <p className="text-[11px] text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded border border-blue-100 dark:border-blue-900">
+                        <strong>Admin Note:</strong> {report.adminNotes || report.admin_notes}
+                      </p>
+                    )}
                   </div>
 
-                  <p className="text-xs sm:text-sm font-semibold text-white line-clamp-1">
-                    {report.summary || report.description}
-                  </p>
-
-                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                    <MapPin className="w-3 h-3 text-slate-500 flex-shrink-0" />
-                    <span className="truncate">{report.location}</span>
-                    <span>•</span>
-                    <span>{report.department}</span>
+                  <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 font-medium group-hover:translate-x-1 transition flex-shrink-0 self-end sm:self-center">
+                    <span>Track Status</span>
+                    <ChevronRight className="w-4 h-4" />
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 self-end sm:self-center">
-                  <span className="text-xs text-blue-400 font-medium hover:underline flex items-center gap-1">
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>Details</span>
-                  </span>
-                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                <FileText className="w-5 h-5" />
               </div>
-            ))}
-          </div>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">No Reports Filed Yet</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Notice physical hazards or broken lights? Submit a report for facilities triage.
+              </p>
+              <button
+                onClick={() => setActiveTab('report')}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 transition"
+              >
+                File First Report
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Campus Announcements (1 Column) */}
+        {/* Right Column: Campus Safety Quick Hub */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <Megaphone className="w-4 h-4 text-blue-400" />
-              <span>Campus Alerts & News</span>
-            </h2>
-          </div>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wide flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-blue-600" />
+            <span>Safety Actions & Dispatch</span>
+          </h2>
 
-          <div className="space-y-3">
-            {CAMPUS_ANNOUNCEMENTS.map((item) => (
-              <div key={item.id} className="p-4 rounded-2xl glass-panel space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-blue-500/15 text-blue-300 font-semibold border border-blue-500/30">
-                    {item.badge}
-                  </span>
-                  <span className="text-[10px] text-slate-400">{item.date}</span>
-                </div>
-                <h4 className="text-xs font-bold text-white">{item.title}</h4>
-                <p className="text-[11px] text-slate-300 leading-relaxed">{item.content}</p>
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+            <button
+              onClick={() => setActiveTab('report')}
+              className="w-full p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 hover:bg-blue-100 dark:hover:bg-blue-900/40 text-left transition flex items-center justify-between"
+            >
+              <div>
+                <p className="text-xs font-bold text-blue-900 dark:text-blue-300">File an Incident Report</p>
+                <p className="text-[11px] text-blue-700 dark:text-blue-400">AI category detection & smart triage</p>
               </div>
-            ))}
+              <ArrowRight className="w-4 h-4 text-blue-600" />
+            </button>
 
-            {/* Safety Reminder Card */}
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/20 text-xs">
-              <p className="font-semibold text-indigo-300 mb-1">Night Safety Note</p>
-              <p className="text-slate-300 text-[11px] leading-relaxed">
-                Campus security patrols are stationed at Blue Light callboxes every 200m. Request an escort at any time.
-              </p>
+            <button
+              onClick={() => setActiveTab('emergency')}
+              className="w-full p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 hover:bg-red-100 dark:hover:bg-red-900/40 text-left transition flex items-center justify-between"
+            >
+              <div>
+                <p className="text-xs font-bold text-red-900 dark:text-red-300">Emergency SOS Dispatch</p>
+                <p className="text-[11px] text-red-700 dark:text-red-400">Direct campus police & medical line</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-red-600" />
+            </button>
+
+            <button
+              onClick={() => setActiveTab('disaster-indicator')}
+              className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 text-left transition flex items-center justify-between"
+            >
+              <div>
+                <p className="text-xs font-bold text-slate-900 dark:text-slate-100">Disaster Indicator Broadcasts</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Campus emergency alerts & all-clears</p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            </button>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs space-y-1 text-slate-500 dark:text-slate-400">
+              <p className="font-semibold text-slate-700 dark:text-slate-300">Emergency Numbers:</p>
+              <p>• Campus Police: <strong>(555) 019-911</strong></p>
+              <p>• Facilities Rapid Response: <strong>(555) 019-322</strong></p>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Selected Report Modal Inspector */}
-      {selectedReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-navy-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div>
-                <span className="text-xs font-mono text-blue-400 font-bold">{selectedReport.id}</span>
-                <h3 className="text-base font-bold text-white mt-0.5">{selectedReport.summary}</h3>
-              </div>
-              <button
-                onClick={() => setSelectedReport(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-slate-400">Full Incident Description:</span>
-                <p className="text-slate-200 mt-1 bg-slate-950/60 p-3 rounded-xl border border-slate-800 leading-relaxed">
-                  "{selectedReport.description}"
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2.5 bg-slate-800/60 rounded-xl">
-                  <span className="text-slate-400 text-[11px]">Location</span>
-                  <p className="font-semibold text-white mt-0.5">{selectedReport.location}</p>
-                </div>
-                <div className="p-2.5 bg-slate-800/60 rounded-xl">
-                  <span className="text-slate-400 text-[11px]">Assigned Department</span>
-                  <p className="font-semibold text-white mt-0.5">{selectedReport.department}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2.5 bg-slate-800/60 rounded-xl">
-                  <span className="text-slate-400 text-[11px]">Priority & Confidence</span>
-                  <p className="font-semibold text-white mt-0.5">
-                    {selectedReport.priority} ({selectedReport.confidence || 94}% AI confidence)
-                  </p>
-                </div>
-                <div className="p-2.5 bg-slate-800/60 rounded-xl">
-                  <span className="text-slate-400 text-[11px]">Current Status</span>
-                  <p className="font-semibold text-cyan-400 mt-0.5">{selectedReport.status}</p>
-                </div>
-              </div>
-
-              <div>
-                <span className="text-slate-400">AI Recommended Action:</span>
-                <p className="text-blue-300 mt-1 bg-blue-950/20 p-2.5 rounded-xl border border-blue-500/20">
-                  {selectedReport.recommendedAction}
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-800 flex justify-end">
-              <button
-                onClick={() => setSelectedReport(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold"
-              >
-                Close View
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

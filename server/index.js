@@ -30,15 +30,25 @@ app.use(express.static(clientDist));
 app.get('/api', (req, res) => {
   res.json({
     name: 'CampusGuardian AI API',
-    tagline: 'A Safer. Smarter. More Accessible Campus.',
-    version: '1.0.0',
+    tagline: 'A Safer Campus. A Smarter Response.',
+    version: '2.0.0',
     status: 'online',
+    database: 'SQLite (Persistent Storage)',
     endpoints: [
+      'POST /api/auth/login - User authentication',
+      'GET  /api/auth/me - Session restore',
+      'POST /api/auth/logout - Invalidate session',
+      'GET  /api/reports - Fetch reports (role-scoped)',
+      'POST /api/reports - Create new incident report',
+      'PATCH /api/reports/:id - Admin update report status/department',
+      'GET  /api/reports/export - Admin export reports CSV/JSON',
+      'GET  /api/alerts - Disaster Indicator alerts',
+      'POST /api/alerts - Admin publish disaster alert',
+      'PATCH /api/alerts/:id - Admin update/all-clear disaster alert',
+      'POST /api/alerts/:id/acknowledge - Student acknowledge alert',
+      'GET  /api/audit-logs - Admin view system audit trail',
       'POST /api/analyze - AI Issue classification & triage',
       'POST /api/chat - AI Campus Assistant with knowledge base',
-      'GET  /api/reports - Fetch all reports',
-      'POST /api/reports - Create new report',
-      'PATCH /api/reports/:id - Admin update report status/department',
       'GET  /api/emergency - Emergency contacts & safety protocols',
       'GET  /api/accessibility - Accessible facilities & services',
       'GET  /api/health - System health & AI engine status'
@@ -72,6 +82,7 @@ app.listen(PORT, () => {
   console.log('====================================================');
   console.log(`🛡️  CampusGuardian AI Server running on port ${PORT}`);
   console.log(`📡 API Base: http://localhost:${PORT}/api`);
+  console.log(`💾 Database: SQLite (Persistent at server/data/campusguardian.sqlite)`);
   console.log(`🤖 AI Engine: ${process.env.GEMINI_API_KEY ? 'Gemini API Enabled' : 'Local Fallback Engine Active'}`);
   console.log('====================================================');
 });

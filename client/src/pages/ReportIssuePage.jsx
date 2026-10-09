@@ -5,21 +5,16 @@ import {
   Sparkles,
   MapPin,
   Camera,
-  AlertCircle,
   CheckCircle2,
   Send,
   Loader2,
-  RefreshCw,
   Building,
-  Sliders,
-  ShieldCheck,
-  FileCheck,
-  ArrowRight,
-  Info
+  ArrowRight
 } from 'lucide-react';
+import DisasterIndicatorBanner from '../components/DisasterIndicatorBanner';
 
 export default function ReportIssuePage() {
-  const { addReport, setActiveTab, addToast } = useReports();
+  const { addReport, setActiveTab, addToast, currentUser, openAuthModal } = useReports();
 
   // Form State
   const [description, setDescription] = useState('');
@@ -35,6 +30,17 @@ export default function ReportIssuePage() {
   const [submittedReport, setSubmittedReport] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const categories = [
+    'Fire Safety',
+    'Electrical Issue',
+    'Building Maintenance',
+    'Security',
+    'Medical Assistance',
+    'Accessibility',
+    'Sanitation',
+    'Other'
+  ];
+
   // Quick Preset Prompts
   const quickPresets = [
     {
@@ -44,39 +50,36 @@ export default function ReportIssuePage() {
     },
     {
       title: 'Blocked Wheelchair Ramp',
-      text: 'The wheelchair ramp at the Library north entrance is blocked by heavy wooden shipping pallets.',
+      text: 'The wheelchair ramp at the Library north entrance is obstructed by heavy delivery crates and wooden pallets.',
       loc: 'Central Library - North Ramp'
     },
     {
       title: 'Projector HDMI Sparking',
-      text: 'The projector in Science Hall 302 won\'t turn on and the HDMI cable sparks when connected.',
+      text: 'The projector in Science Hall 302 sparks when HDMI is plugged in and will not project lecture slides.',
       loc: 'Science Complex - Room 302'
     },
     {
-      title: 'Urgent Restroom Leak',
-      text: 'A burst pipe is flooding water onto the floor in the 1st floor restroom of Engineering Wing B.',
-      loc: 'Engineering Wing B - 1st Floor Restroom'
+      title: 'Urgent Washroom Leak',
+      text: 'A high-pressure pipe under the washroom sink in Engineering Wing B is leaking water across the hallway.',
+      loc: 'Engineering Wing B - Ground Floor Restroom'
     }
   ];
 
-  // Quick Locations
   const quickLocations = [
     'Block C - Staircase',
     'Central Library - North Ramp',
     'Science Complex - Hall 302',
-    'Engineering Wing B',
+    'Engineering Wing B - Restroom',
     'Student Center - Main Plaza',
     'Campus Dining Commons'
   ];
 
-  // Handle Preset Fill
   const handleSelectPreset = (preset) => {
     setDescription(preset.text);
     setLocation(preset.loc);
     setAiResult(null);
   };
 
-  // Handle Image Upload Simulation
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -88,10 +91,9 @@ export default function ReportIssuePage() {
     }
   };
 
-  // Analyze with AI
   const handleAnalyzeWithAI = async () => {
     if (!description.trim()) {
-      addToast('Input Required', 'Please enter a description of the campus issue.', 'warning');
+      addToast('Input Required', 'Please enter an issue description first.', 'warning');
       return;
     }
 
@@ -100,67 +102,62 @@ export default function ReportIssuePage() {
 
     try {
       const result = await analyzeIssueWithAI(description.trim(), location.trim());
-      setAiResult({
-        category: optionalCategory || result.category,
-        priority: result.priority,
-        department: result.department,
-        summary: result.summary,
-        recommendedAction: result.recommendedAction,
-        confidence: result.confidence,
-        source: result.source,
-        model: result.model
-      });
-      addToast('AI Analysis Complete', `Classified as ${result.category} with ${result.confidence}% confidence`, 'info');
+      setAiResult(result);
+      if (result.category) {
+        setOptionalCategory(result.category);
+      }
+      addToast('AI Triage Complete', `Detected ${result.category} (${result.priority} Priority)`, 'success');
     } catch (err) {
-      console.error('Analysis failed:', err);
-      addToast('Analysis Error', 'Failed to analyze with AI. Check backend connection.', 'error');
+      addToast('Analysis Notice', 'Evaluated with local campus safety rules.', 'info');
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  // Submit Final Report
-  const handleSubmit = async (e) => {
+  const handleSubmitReport = async (e) => {
     e.preventDefault();
 
-    if (!description.trim()) {
-      addToast('Description Missing', 'Please describe the problem.', 'warning');
+    if (!currentUser) {
+      addToast('Authentication Required', 'Please sign in with student credentials to file a report.', 'warning');
+      openAuthModal('student');
       return;
     }
 
-    if (!location.trim()) {
-      addToast('Location Missing', 'Please specify where this issue is located on campus.', 'warning');
+    if (!description.trim() || !location.trim()) {
+      addToast('Missing Fields', 'Please provide both an issue description and location.', 'warning');
       return;
     }
 
     setIsSubmitting(true);
-
-    const reportPayload = {
-      description: description.trim(),
-      location: location.trim(),
-      category: aiResult?.category || optionalCategory || 'Other',
-      priority: aiResult?.priority || 'Medium',
-      department: aiResult?.department || 'General Campus Operations',
-      summary: aiResult?.summary || description.slice(0, 50),
-      recommendedAction: aiResult?.recommendedAction || 'Inspect and address reported issue.',
-      confidence: aiResult?.confidence || 92,
-      imageUrl: imagePreview,
-      source: aiResult?.source || 'manual',
-      model: aiResult?.model || 'CampusGuardian Engine'
-    };
-
     try {
-      const created = await addReport(reportPayload);
+      const finalCategory = optionalCategory || aiResult?.category || 'Other';
+      const finalPriority = aiResult?.priority || 'Medium';
+      const finalDept = aiResult?.department || 'General Campus Operations';
+      const finalSummary = aiResult?.summary || description.slice(0, 60);
+      const finalAction = aiResult?.recommendedAction || 'Inspect and assess site condition.';
+      const confidence = aiResult?.confidence || 92;
+
+      const reportData = {
+        description: description.trim(),
+        location: location.trim(),
+        category: finalCategory,
+        priority: finalPriority,
+        department: finalDept,
+        summary: finalSummary,
+        recommendedAction: finalAction,
+        confidence: confidence,
+        imageUrl: imagePreview
+      };
+
+      const created = await addReport(reportData);
       setSubmittedReport(created);
     } catch (err) {
-      console.error('Submission failed:', err);
-      addToast('Error', 'Failed to record report. Please retry.', 'error');
+      // Handled in context
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Reset form to file another report
   const handleResetForm = () => {
     setDescription('');
     setLocation('');
@@ -170,151 +167,207 @@ export default function ReportIssuePage() {
     setSubmittedReport(null);
   };
 
-  return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-16">
-      {/* Header */}
-      <div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold mb-2">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>AI-Powered Incident Triage</span>
+  // SUCCESS CONFIRMATION VIEW
+  if (submittedReport) {
+    return (
+      <div className="max-w-2xl mx-auto py-10 px-4 text-center space-y-6 animate-fade-in">
+        <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 flex items-center justify-center mx-auto">
+          <CheckCircle2 className="w-7 h-7" />
         </div>
-        <h1 className="text-3xl font-extrabold text-white">Report a Campus Issue</h1>
-        <p className="text-sm text-slate-400 mt-1">
-          Describe what you see in natural language. Our AI engine will categorize, determine urgency, and recommend routing.
+
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            Recorded in SQLite Database
+          </span>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            Incident Report Successfully Filed
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+            Your report is saved with a unique identifier and dispatched to university operations for review.
+          </p>
+        </div>
+
+        <div className="p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-left space-y-3.5 shadow-sm">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <span className="text-[11px] text-slate-400">Tracking Reference</span>
+              <p className="text-base font-mono font-bold text-blue-600 dark:text-blue-400">{submittedReport.id}</p>
+            </div>
+            <div className="text-right">
+              <span className="text-[11px] text-slate-400">Status</span>
+              <p className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900">
+                {submittedReport.status}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <span className="text-slate-400">Category:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100 mt-0.5">{submittedReport.category}</p>
+            </div>
+            <div>
+              <span className="text-slate-400">Target Department:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100 mt-0.5">{submittedReport.department}</p>
+            </div>
+            <div>
+              <span className="text-slate-400">Location:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100 mt-0.5">{submittedReport.location}</p>
+            </div>
+            <div>
+              <span className="text-slate-400">Priority:</span>
+              <p className="font-medium text-slate-900 dark:text-slate-100 mt-0.5">{submittedReport.priority}</p>
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Recommended Action:</span>
+            <p className="text-slate-700 dark:text-slate-300 mt-0.5">{submittedReport.recommendedAction || submittedReport.recommended_action}</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => setActiveTab('my-reports')}
+            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition flex items-center gap-2"
+          >
+            <span>Track in My Reports</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleResetForm}
+            className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs border border-slate-200 dark:border-slate-700 transition"
+          >
+            Submit Another Report
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 pb-16 max-w-4xl mx-auto">
+      <DisasterIndicatorBanner />
+
+      {/* Header */}
+      <div className="text-center space-y-1.5">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-400 text-xs font-medium">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>AI-Assisted Incident Triage</span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100">
+          Report Campus Hazard or Facility Issue
+        </h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto">
+          Describe the situation in plain words. CampusGuardian AI triages urgency, classifies the issue, and routes work orders directly to facilities.
         </p>
       </div>
 
-      {/* Quick Test Presets Bar */}
-      <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-slate-300">Quick-Fill Test Scenarios:</span>
-          <span className="text-[11px] text-blue-400">Click to autofill sample incident</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {/* Quick Preset Prompts */}
+      <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+          <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+          <span>Evaluation Test Scenarios:</span>
+        </span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {quickPresets.map((preset, idx) => (
             <button
               key={idx}
               type="button"
               onClick={() => handleSelectPreset(preset)}
-              className="p-2.5 rounded-xl bg-slate-950/70 hover:bg-slate-800/80 border border-slate-800 hover:border-blue-500/40 text-left transition text-xs"
+              className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-left transition group text-xs"
             >
-              <p className="font-semibold text-white truncate">{preset.title}</p>
-              <p className="text-[10px] text-slate-400 truncate">{preset.loc}</p>
+              <p className="font-medium text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                {preset.title}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                {preset.text}
+              </p>
             </button>
           ))}
         </div>
       </div>
 
       {/* Main Reporting Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Issue Description */}
-        <div className="space-y-2">
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-            Natural Language Issue Description <span className="text-rose-400">*</span>
-          </label>
-          <div className="relative">
-            <textarea
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. The staircase light near Block C has been broken for three days and it is very dark at night..."
-              className="w-full rounded-2xl p-4 text-sm text-white glass-input placeholder:text-slate-500 resize-none leading-relaxed"
-            />
+      <form onSubmit={handleSubmitReport} className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+        {/* Description Field */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+              What is happening? Describe the issue *
+            </label>
+            <span className="text-[11px] text-slate-400">Plain English description</span>
           </div>
-          <p className="text-[11px] text-slate-400">
-            Provide as much context as you like. You do not need to choose a code or department manually.
-          </p>
+          <textarea
+            required
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="e.g. The staircase light near Block C has been broken for three days and it is dark at night..."
+            className="w-full px-3.5 py-2.5 rounded-lg glass-input text-xs leading-relaxed"
+          />
         </div>
 
-        {/* Location & Optional Category */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Location */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-              Campus Location <span className="text-rose-400">*</span>
-            </label>
-            <div className="relative">
-              <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Block C - Staircase 2nd Floor"
-                className="w-full rounded-xl pl-10 pr-4 py-3 text-sm text-white glass-input placeholder:text-slate-500"
-              />
-            </div>
-
-            {/* Quick Location Pills */}
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {quickLocations.map((loc, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setLocation(loc)}
-                  className="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-800 text-[10px] text-slate-300 border border-slate-800 transition"
-                >
-                  {loc}
-                </button>
-              ))}
-            </div>
+        {/* Location Field & Quick Picks */}
+        <div>
+          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+            Campus Location / Building / Room *
+          </label>
+          <div className="relative mb-2">
+            <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+            <input
+              type="text"
+              required
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Block C - Staircase 2nd Floor, Central Library North Ramp..."
+              className="w-full pl-9 pr-3 py-2 rounded-lg glass-input text-xs"
+            />
           </div>
 
-          {/* Optional Category */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-              Optional Category Suggestion
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            <span className="text-[11px] text-slate-400">Quick picks:</span>
+            {quickLocations.map((loc, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setLocation(loc)}
+                className="px-2 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition"
+              >
+                {loc}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Category & Photo Upload */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Category (Optional — AI can detect)
             </label>
             <select
               value={optionalCategory}
-              onChange={(e) => {
-                setOptionalCategory(e.target.value);
-                if (aiResult) setAiResult({ ...aiResult, category: e.target.value });
-              }}
-              className="w-full rounded-xl px-4 py-3 text-sm text-white glass-input bg-navy-900"
+              onChange={(e) => setOptionalCategory(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg glass-input text-xs"
             >
-              <option value="">Auto-Detect with AI (Recommended)</option>
-              <option value="Safety">Safety</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="IT/Cybersecurity">IT / Cybersecurity</option>
-              <option value="Accessibility">Accessibility</option>
-              <option value="Lost & Found">Lost & Found</option>
-              <option value="Facilities">Facilities</option>
-              <option value="Other">Other</option>
+              <option value="">Let AI Automatically Detect</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
-            <p className="text-[11px] text-slate-400">
-              Leave on Auto-Detect to allow AI to classify based on your description.
-            </p>
           </div>
-        </div>
 
-        {/* Optional Image Upload UI */}
-        <div className="space-y-2">
-          <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-            Optional Photo Evidence
-          </label>
-          <div className="p-4 rounded-2xl border-2 border-dashed border-slate-800 hover:border-slate-700 bg-slate-950/40 text-center transition">
-            {imagePreview ? (
-              <div className="relative inline-block">
-                <img
-                  src={imagePreview}
-                  alt="Incident Preview"
-                  className="max-h-48 rounded-xl object-cover border border-slate-700 shadow-md"
-                />
-                <button
-                  type="button"
-                  onClick={() => setImagePreview(null)}
-                  className="absolute -top-2 -right-2 bg-rose-600 text-white p-1 rounded-full text-xs hover:bg-rose-500 shadow"
-                >
-                  ✕
-                </button>
-              </div>
-            ) : (
-              <label className="cursor-pointer flex flex-col items-center justify-center gap-2 py-4">
-                <Camera className="w-8 h-8 text-blue-400/80" />
-                <span className="text-xs text-slate-300 font-medium">
-                  Click to browse photo or drag & drop image
-                </span>
-                <span className="text-[10px] text-slate-500">Supports JPG, PNG, WEBP up to 5MB</span>
+          <div>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+              Photo / Attachment (Optional)
+            </label>
+            <div className="flex items-center gap-2.5">
+              <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 bg-slate-50 dark:bg-slate-950 cursor-pointer text-xs text-slate-600 dark:text-slate-400 transition">
+                <Camera className="w-4 h-4 text-blue-600" />
+                <span>{imagePreview ? 'Change Photo' : 'Upload Hazard Photo'}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -322,249 +375,103 @@ export default function ReportIssuePage() {
                   className="hidden"
                 />
               </label>
-            )}
+              {imagePreview && (
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="w-9 h-9 object-cover rounded-lg border border-slate-200 dark:border-slate-700"
+                />
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Action: Analyze with AI Button */}
-        <div className="pt-2">
+        {/* AI Triage Trigger */}
+        <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300">
+            <Sparkles className="w-4 h-4 text-blue-600 flex-shrink-0" />
+            <span>Click <strong>Analyze with AI</strong> to preview classification, urgency, and recommended department.</span>
+          </div>
+
           <button
             type="button"
-            onClick={handleAnalyzeWithAI}
             disabled={isAnalyzing || !description.trim()}
-            className={`w-full py-4 px-6 rounded-2xl font-bold text-white transition-all duration-300 flex items-center justify-center gap-3 shadow-xl ${
-              isAnalyzing
-                ? 'bg-indigo-700 cursor-wait'
-                : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 shadow-glow-blue active:scale-[0.99]'
+            onClick={handleAnalyzeWithAI}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition ${
+              isAnalyzing || !description.trim()
+                ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
           >
             {isAnalyzing ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                <span>AI Analyzing Urgency, Department & Actions...</span>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Analyzing...</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-5 h-5 text-amber-300" />
+                <Sparkles className="w-3.5 h-3.5" />
                 <span>Analyze with AI</span>
               </>
             )}
           </button>
         </div>
 
-        {/* AI Analysis Result Section (Editable before submission) */}
+        {/* AI Analysis Preview Card */}
         {aiResult && (
-          <div className="p-6 rounded-2xl bg-gradient-to-br from-navy-900/95 to-slate-900 border-2 border-blue-500/40 shadow-glow-blue space-y-6 animate-in slide-in-from-bottom duration-300">
-            {/* Header / Engine Info */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-800 gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">AI Incident Classification</h3>
-                  <p className="text-xs text-slate-400">
-                    Engine: <span className="text-blue-300 font-semibold">{aiResult.model || 'Gemini 2.0 Flash'}</span>
-                  </p>
-                </div>
-              </div>
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2.5 animate-fade-in text-xs">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                <span>AI Recommendation ({aiResult.confidence}% Confidence)</span>
+              </span>
+              <span className="text-[10px] text-slate-400">
+                Engine: {aiResult.model || 'Campus AI Engine'}
+              </span>
+            </div>
 
-              {/* Confidence Score Gauge */}
-              <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800">
-                <span className="text-xs text-slate-400">Confidence:</span>
-                <span className="text-sm font-bold text-emerald-400">{aiResult.confidence}%</span>
-                <div className="w-16 h-2 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-500 rounded-full"
-                    style={{ width: `${aiResult.confidence}%` }}
-                  />
-                </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+              <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <span className="text-slate-400 block text-[10px]">Category</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{aiResult.category}</span>
+              </div>
+              <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                <span className="text-slate-400 block text-[10px]">Priority</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{aiResult.priority}</span>
+              </div>
+              <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 sm:col-span-2">
+                <span className="text-slate-400 block text-[10px]">Target Department</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100 truncate block">{aiResult.department}</span>
               </div>
             </div>
 
-            {/* Editable Fields Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-              {/* Category */}
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">Category (Editable)</label>
-                <select
-                  value={aiResult.category}
-                  onChange={(e) => setAiResult({ ...aiResult, category: e.target.value })}
-                  className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-medium"
-                >
-                  <option value="Safety">Safety</option>
-                  <option value="Maintenance">Maintenance</option>
-                  <option value="IT/Cybersecurity">IT/Cybersecurity</option>
-                  <option value="Accessibility">Accessibility</option>
-                  <option value="Lost & Found">Lost & Found</option>
-                  <option value="Facilities">Facilities</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              {/* Priority */}
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">Priority (Editable)</label>
-                <select
-                  value={aiResult.priority}
-                  onChange={(e) => setAiResult({ ...aiResult, priority: e.target.value })}
-                  className={`w-full p-2.5 rounded-xl bg-slate-950 border font-semibold ${
-                    aiResult.priority === 'Critical'
-                      ? 'border-rose-500 text-rose-400'
-                      : aiResult.priority === 'High'
-                      ? 'border-amber-500 text-amber-400'
-                      : 'border-blue-500 text-blue-400'
-                  }`}
-                >
-                  <option value="Critical">Critical</option>
-                  <option value="High">High</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Low">Low</option>
-                </select>
-              </div>
-
-              {/* Department */}
-              <div>
-                <label className="block text-slate-400 font-semibold mb-1">Department (Editable)</label>
-                <input
-                  type="text"
-                  value={aiResult.department}
-                  onChange={(e) => setAiResult({ ...aiResult, department: e.target.value })}
-                  className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-medium truncate"
-                />
-              </div>
-            </div>
-
-            {/* Summary */}
-            <div className="space-y-1">
-              <label className="block text-xs text-slate-400 font-semibold">Short Summary (Editable)</label>
-              <input
-                type="text"
-                value={aiResult.summary}
-                onChange={(e) => setAiResult({ ...aiResult, summary: e.target.value })}
-                className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-white font-medium text-sm"
-              />
-            </div>
-
-            {/* Recommended Action */}
-            <div className="space-y-1">
-              <label className="block text-xs text-slate-400 font-semibold">Recommended Action (Editable)</label>
-              <textarea
-                rows={2}
-                value={aiResult.recommendedAction}
-                onChange={(e) => setAiResult({ ...aiResult, recommendedAction: e.target.value })}
-                className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-blue-200 text-xs leading-relaxed"
-              />
-            </div>
-
-            {/* Submit Report Final Button */}
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-4 px-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-glow-emerald transition flex items-center justify-center gap-2 active:scale-[0.99]"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Submitting Report & Notifying Ops...</span>
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-5 h-5" />
-                    <span>Confirm & Submit Report</span>
-                  </>
-                )}
-              </button>
+            <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px]">
+              <span className="text-slate-400 block text-[10px]">Triage Action:</span>
+              <p className="text-slate-700 dark:text-slate-300 mt-0.5">{aiResult.recommendedAction}</p>
             </div>
           </div>
         )}
-      </form>
 
-      {/* Success Confirmation Modal */}
-      {submittedReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-navy-900 border-2 border-emerald-500/50 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-glow-emerald space-y-6">
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
-                <CheckCircle2 className="w-8 h-8" />
-              </div>
-              <h2 className="text-2xl font-extrabold text-white">Report Successfully Submitted!</h2>
-              <p className="text-xs text-slate-300">
-                Your incident has been logged, triaged, and dispatched to university operations.
-              </p>
-            </div>
-
-            {/* Tracking Receipt Card */}
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-3 text-xs">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                <span className="text-slate-400">Tracking Report ID</span>
-                <span className="font-mono text-base font-bold text-blue-400">{submittedReport.id}</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Current Status</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-semibold border border-blue-500/30">
-                  {submittedReport.status}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Category & Priority</span>
-                <span className="font-semibold text-white">
-                  {submittedReport.category} • {submittedReport.priority}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Assigned Department</span>
-                <span className="font-semibold text-white truncate max-w-[200px]">
-                  {submittedReport.department}
-                </span>
-              </div>
-
-              <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400">
-                <span className="font-semibold text-slate-300">Summary:</span> {submittedReport.summary}
-              </div>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="space-y-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setSubmittedReport(null);
-                  setActiveTab('my-reports');
-                }}
-                className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-glow-blue transition flex items-center justify-center gap-2"
-              >
-                <span>Track Report in "My Reports"</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSubmittedReport(null);
-                    setActiveTab('admin');
-                  }}
-                  className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold border border-slate-700 transition"
-                >
-                  View in Admin Hub
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetForm}
-                  className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold border border-slate-700 transition"
-                >
-                  Submit Another
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Submit Button */}
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className={`w-full py-2.5 rounded-xl font-medium text-xs text-white bg-blue-600 hover:bg-blue-700 transition flex items-center justify-center gap-2 ${
+              isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
+            }`}
+          >
+            {isSubmitting ? (
+              <span>Saving to SQLite Database...</span>
+            ) : (
+              <>
+                <Send className="w-3.5 h-3.5" />
+                <span>Submit Campus Incident Report</span>
+              </>
+            )}
+          </button>
         </div>
-      )}
+      </form>
     </div>
   );
 }

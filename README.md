@@ -1,22 +1,26 @@
 # 🛡️ CampusGuardian AI
-> **"A Safer. Smarter. More Accessible Campus."**
+> **"A Safer Campus. A Smarter Response."**
 
-[![Hackathon Track](https://img.shields.io/badge/Hackathon%20Track-Smart%20Campus%20Solutions-blue.svg)](#)
-[![Stack](https://img.shields.io/badge/Tech%20Stack-React%20%7C%20Vite%20%7C%20Tailwind%20%7C%20Express-indigo.svg)](#)
-[![AI Engine](https://img.shields.io/badge/AI%20Engine-Gemini%202.0%20%2B%20Offline%20Fallback-emerald.svg)](#)
-[![Status](https://img.shields.io/badge/Build-Passing-success.svg)](#)
+[![Hackathon Track](https://img.shields.io/badge/Hackathon%20Track-Smart%20Campus%20Safety-blue.svg)](#)
+[![Stack](https://img.shields.io/badge/Stack-React%20%7C%20Vite%20%7C%20Express%20%7C%20SQLite-indigo.svg)](#)
+[![AI Engine](https://img.shields.io/badge/AI%20Engine-Gemini%202.0%20%2B%20Local%20Rule%20Fallback-emerald.svg)](#)
+[![Security](https://img.shields.io/badge/Security-RBAC%20%2B%20Scrypt%20Sessions-success.svg)](#)
+[![Tests](https://img.shields.io/badge/Tests-47%2F47%20Passing%20(100%25)-brightgreen.svg)](#)
 
 ---
 
 ## 📌 Project Overview
-**CampusGuardian AI** is an intelligent campus safety, accessibility, and facility resolution platform engineered for university communities. Rather than forcing students to navigate complex municipal ticketing codes or bureaucratic departmental silos, CampusGuardian AI enables students and faculty to submit reports using natural, everyday language.
+**CampusGuardian AI** is an enterprise-grade smart campus safety, incident reporting, and emergency operations platform built for engineering hackathons and university campus administrations.
 
-Our dual-intelligence architecture pairs **Google Gemini AI** with an offline **Local Fallback Rule & Triage Engine** to instantaneously:
-1. Classify the problem into designated functional categories (**Safety, Maintenance, IT/Cybersecurity, Accessibility, Lost & Found, Facilities, Other**).
-2. Assess situational urgency into priority ratings (**Critical, High, Medium, Low**).
-3. Automatically route the incident to the appropriate campus department.
-4. Synthesize a concise incident summary and prescribe recommended remedial actions.
-5. Provide a transparent tracking lifecycle for students while equipping campus administrators with an operational dispatch hub.
+Campus operations often suffer from departmental silos, slow ticketing resolution, and fragmented emergency broadcast channels. When physical hazards or accessibility barriers emerge, students struggle with confusing bureaucratic forms while administrators lack real-time situational telemetry.
+
+**CampusGuardian AI bridges this gap with:**
+1. **Natural Language Issue Reporting**: Students report hazards, lighting failures, or broken access ramps in plain, everyday language.
+2. **Dual-Core AI Triage Engine**: Automatically predicts incident categories (**Fire Safety, Electrical Issue, Building Maintenance, Security, Medical Assistance, Accessibility, Sanitation, Other**), calculates triage priority (**Critical, High, Medium, Low**), routes to the responsible department, and suggests immediate remedial actions with confidence metrics.
+3. **Persistent SQLite Administrative Database**: High-performance persistent database using Node's native `DatabaseSync` engine (`server/data/campusguardian.sqlite`). Every report, status change, and audit event remains durable across page reloads and backend restarts.
+4. **Disaster Indicator & Campus Emergency Broadcasts**: Centralized emergency broadcast console for administrators with severe weather, fire, earthquake, and security threat lifecycle management (Drafting → Preview → 2-Step Critical Confirmation → All-Clear Declarations → Student Acknowledgement Tracking).
+5. **Role-Based Access Control (RBAC) & Secure Persistent Sessions**: Distinct Student and Administration portals with cryptographically salted `scrypt` password verification, session tokens, and strict server-side authorization guards.
+6. **Dynamic Theme Engine**: Seamless instant switching between a crisp Light Mode, deep cyber Dark Mode, or System Default with persistent user preferences.
 
 ---
 
@@ -24,304 +28,214 @@ Our dual-intelligence architecture pairs **Google Gemini AI** with an offline **
 
 ```mermaid
 flowchart TD
-    User["Student / Faculty User"]
+    User["Student or Administrator"]
     
-    subgraph Frontend ["Client (React + Vite + Tailwind CSS)"]
-        UI["Modern University Dashboard"]
-        Store["Local State & localStorage Persistence"]
-        ApiClient["Resilient API Client with Client Fallback"]
+    subgraph Frontend ["Client (React 18 + Vite 5 + Tailwind CSS)"]
+        Welcome["Public Welcome Page"]
+        AuthM["Auth Modal (1-Click Demo Fill)"]
+        Theme["Theme Engine (Light / Dark / System)"]
+        StudDash["Student Incident Portal"]
+        AdminDash["Administration Hub & Recharts Telemetry"]
+        Disaster["Disaster Indicator Hub"]
+        AIAssist["GuardianBot AI Assistant"]
     end
     
-    subgraph Backend ["Server (Node.js + Express)"]
+    subgraph Backend ["Server (Node.js 24 + Express)"]
+        AuthMiddleware["RBAC & Session Token Guard"]
         Router["Express REST API (/api)"]
+        DBService["SQLite Service (node:sqlite DatabaseSync)"]
         AIService["AI Orchestration Service"]
-        ReportStore["In-Memory Store & State Sync"]
+    end
+    
+    subgraph PersistentStorage ["Local Persistent Storage"]
+        SQLiteDB[("server/data/campusguardian.sqlite")]
+        AuditLog[("Immutable Audit Trail")]
     end
     
     subgraph AI_Intelligence ["AI Engine (Dual-Core)"]
-        Gemini["Google Gemini API (Cloud)"]
-        LocalEngine["CampusGuardian Local Fallback Engine (Offline)"]
+        GeminiCloud["Google Gemini 2.0 Flash (REST API)"]
+        LocalRuleEngine["CampusGuardian Deterministic Rule Engine (Offline)"]
     end
 
-    User -->|Natural Language Issue| UI
-    UI --> Store
-    UI --> ApiClient
-    ApiClient --> Router
+    User --> Welcome
+    Welcome --> AuthM
+    AuthM -->|Bearer Token| AuthMiddleware
+    AuthMiddleware --> Router
+    Router --> DBService
+    DBService <--> SQLiteDB
+    DBService --> AuditLog
+    
     Router --> AIService
-    
-    AIService -->|If GEMINI_API_KEY Available| Gemini
-    AIService -->|Fallback / Offline Mode| LocalEngine
-    
-    Gemini -->|Structured JSON Triage| Router
-    LocalEngine -->|Keyword & Urgency Rules| Router
-    
-    Router -->|JSON Response| ApiClient
-    ApiClient --> UI
-    Store <-->|Bi-directional Sync| ReportStore
+    AIService -->|If GEMINI_API_KEY Set| GeminiCloud
+    AIService -->|Fallback / Offline Mode| LocalRuleEngine
 ```
 
 ---
 
-## ✨ Core Modules & Pages
+## 🔑 Demo Account Credentials
 
-### 1. 🌐 Landing Page
-- Modern dark-navy visual aesthetic with glassmorphism cards and subtle ambient glows.
-- Hero showcasing the core mission: *"A Safer. Smarter. More Accessible Campus."*
-- Real-time campus telemetry statistics (Resolution Rate, Critical Active, Avg Triage Time).
-- Interactive 4-step workflow (*Report → AI Triage → Department Dispatch → Lifecycle Tracking*).
-- 1-click test prompt previews.
+For engineering hackathon judges, two pre-seeded development accounts are configured in the SQLite database and can be filled with a single click in the **Sign In** modal:
 
-### 2. 📊 Student Dashboard
-- Real-time incident counters: **Total Reports, Pending Actions, Critical Priority, Resolved**.
-- Quick-action buttons to instantly report issues, chat with the AI assistant, or trigger emergency aid.
-- Recent campus reports feed with live status badges.
-- Campus Announcements & Safety Advisory bulletin board.
+| Portal | Demo Email | Demo Password | Role & Permissions |
+| :--- | :--- | :--- | :--- |
+| **Student Portal** | `student@campusguardian.demo` | `student123` | File campus reports, track personal report status, view Disaster Indicator alerts, acknowledge warnings, access emergency guides. |
+| **Administration** | `admin@campusguardian.demo` | `admin123` | View all campus reports, update workflow statuses, assign departments & staff, add admin notes, publish campus disaster alerts, issue all-clear notices, export CSV/JSON, inspect audit logs. |
 
-### 3. ✍️ AI-Powered Issue Reporter
-- **Natural Language Input**: Type or paste any plain-language issue (e.g., *"The staircase light near Block C has been broken for three days and it is very dark at night."*).
-- **Location Selector**: Custom location text input with one-click campus location pills.
-- **Optional Photo Attachment**: Image upload simulation with preview thumbnail.
-- **"Analyze with AI" Engine**:
-  - Automatically predicts: **Category**, **Priority**, **Department**, **Summary**, **Recommended Action**, and **Confidence Score** (e.g., 94%).
-  - **Editable before submission**: The student can adjust or override any prediction.
-- **Submission Confirmation**: Generates a unique tracking ID (e.g. `CG-2026-8492`), persists data, and shows status as `Submitted`.
-
-### 4. 🗂️ My Reports (Lifecycle Tracker)
-- View all submitted campus incident reports.
-- Comprehensive search by report ID, location, or keyword.
-- Filter by:
-  - **Status**: *Submitted, Under Review, Assigned, In Progress, Resolved*
-  - **Priority**: *Critical, High, Medium, Low*
-  - **Category**: *Safety, Maintenance, IT, Accessibility, Lost & Found, Facilities*
-- Interactive modal with an audit timeline log showing timestamps and dispatch notes.
-
-### 5. 🤖 AI Campus Assistant (GuardianBot)
-- 24/7 interactive chat assistant powered by Gemini and our local campus knowledge base.
-- Pre-configured prompt chips:
-  - *"Where do I report a broken projector?"*
-  - *"What should I do if I find a lost ID card?"*
-  - *"How do I report a water leak?"*
-  - *"Where can I find accessibility assistance?"*
-  - *"What are the campus security numbers?"*
-- Contextual interactive action buttons embedded directly into answers (e.g., *1-Click to prefill report*, *Open Accessibility Directory*, *Speed Dial Security*).
-
-### 6. 🎛️ Administrator Triage Hub
-- Administrative control center for campus operations and facilities management.
-- Dynamic **Recharts** data visualizations:
-  - **Category Distribution Chart** (Bar Chart)
-  - **Priority Breakdown Chart** (Pie Chart with color-coded severity)
-- Operational Incident Table:
-  - Inline status update dropdown (`Submitted`, `Under Review`, `Assigned`, `In Progress`, `Resolved`).
-  - Inline department reassignment dropdown.
-  - One-click **"Mark Resolved"** action.
-  - Export reports database to JSON.
-
-### 7. 🚨 Emergency Center
-- Clearly visible emergency section with **demo/configurable campus contact data** (distinctly disclaimed for safety).
-- Direct call simulator for:
-  - Campus Security Rapid Response (`Ext. 5555`)
-  - University Medical Center & First Aid (`Ext. 5556`)
-  - Campus Administration / Safety Marshall (`Ext. 5550`)
-  - Mental Health & Crisis Helpline (`Ext. 5559`)
-- **Instant SOS Distress Beacon**: Simulates critical incident logging and officer dispatch.
-- Expandable step-by-step safety protocols (*Fire Evacuation, Severe Storm, Medical First Aid, Night SafeWalk Escort*).
-
-### 8. ♿ Accessibility Center
-- Dedicated hub supporting **Mobility**, **Visual**, **Hearing**, and **Neurodiversity** campus needs.
-- **Accessible Facilities Directory**: Real-time status of ramps, elevators, hearing induction loops, and accessible shuttle routes.
-- **Interactive Mobility Escort Request**: Form to schedule a student escort or electric golf cart across campus.
-- Quick link to flag physical or digital accessibility barriers.
-
-### 9. ⚙️ Settings & System Diagnostics
-- Persona switcher between **Student** and **Administrator**.
-- Notification preference toggles (Email, SMS Emergency, Push).
-- Accessibility display settings: **High Contrast Mode**, **Typography Scaling** (Normal / Large / XL), and **Reduced Motion**.
-- Real-time AI engine diagnostic monitor verifying connection to Gemini and local fallback status.
-- **"Reset Demo Data"** button to restore sample campus reports.
+> **Development Note**: Demo credentials are enabled only in development environments (`NODE_ENV=development` and `DEMO_ACCOUNTS_ENABLED=true`). In production mode, demo accounts are disabled and passwords can be configured via environment variables.
 
 ---
 
-## 🧠 AI Engine & Fallback Intelligence
-
-The core AI engine lives in `server/services/aiService.js`.
-
-```javascript
-analyzeIssue(text, location)
-```
-
-1. **Gemini API Execution**:
-   - When a valid `GEMINI_API_KEY` is present in `server/.env`, the backend queries Google's `gemini-2.0-flash` endpoint using structured JSON formatting.
-2. **Autonomous Offline Fallback**:
-   - If `GEMINI_API_KEY` is not provided, is invalid, or fails (rate-limit / offline), the engine **transparently switches to the built-in Local Fallback Engine**.
-   - Analyzes semantic signals and keywords across 7 categories and 4 priority levels.
-   - Computes confidence scores (85%–99%) and generates realistic dispatch summaries and recommended actions.
-   - **Zero downtime guarantee**: The application will never break due to an external API outage.
-
----
-
-## 💻 Tech Stack
-
-| Layer | Technologies |
-|---|---|
-| **Frontend** | React 18, Vite, Tailwind CSS, Lucide React, Recharts |
-| **Backend** | Node.js (v18+ / v20+ / v24+), Express 4, CORS, Dotenv |
-| **AI Integration** | Google Gemini 2.0 REST API + Local Fallback Rule Engine |
-| **Persistence** | LocalStorage (client) + In-Memory Store & Sync (Express server) |
-| **Process Manager** | Concurrently (unified development script) |
-
----
-
-## 🚀 Quick Start & Installation
+## 🚀 Getting Started & Installation
 
 ### Prerequisites
-- **Node.js**: v18.0.0 or higher
-- **npm**: v8.0.0 or higher
+- **Node.js**: v20+ or v24+ (Node v24 provides built-in `node:sqlite`)
+- **npm**: v10+
 
-### 1. Clone & Enter Directory
-```bash
-git clone https://github.com/vaibhavpatilvaibhu-alt/vaibhav-patil-24SUUBEAML673-.git
-cd vaibhav-patil-24SUUBEAML673-
-```
+### 1. Repository Setup & Dependencies
+Install dependencies for both the frontend and backend with a single command from the project root:
 
-### 2. Install Dependencies
-Run the install command to set up root, server, and client packages:
 ```bash
-npm install
+# From vaibhav-patil-24SUUBEAML673-
 npm run install:all
 ```
-*(On Windows PowerShell, use `npm.cmd install` and `npm.cmd run install:all`)*
 
-### 3. Environment Configuration (Optional)
-The application works **100% out of the box** using the built-in Local Fallback AI engine.
-To connect live Google Gemini 2.0 AI:
-1. Copy `server/.env.example` to `server/.env`:
-   ```bash
-   cp server/.env.example server/.env
-   ```
-2. Open `server/.env` and paste your Gemini API key:
-   ```env
-   PORT=5000
-   GEMINI_API_KEY=your_actual_gemini_api_key_here
-   NODE_ENV=development
-   ```
+Alternatively:
+```bash
+cd server && npm install
+cd ../client && npm install
+```
 
-### 4. Run the Application
-Start both the Express backend (`http://localhost:5000`) and the Vite React frontend (`http://localhost:3000`) concurrently with a single command:
+### 2. Environment Configuration
+Copy `.env.example` into `server/.env`:
+
+```bash
+cp .env.example server/.env
+```
+
+Default configuration in `server/.env`:
+```env
+PORT=5000
+NODE_ENV=development
+SESSION_EXPIRY_HOURS=168
+
+# Hackathon Demo Credentials (Development Only)
+DEMO_ACCOUNTS_ENABLED=true
+DEMO_STUDENT_EMAIL=student@campusguardian.demo
+DEMO_STUDENT_PASSWORD=student123
+DEMO_ADMIN_EMAIL=admin@campusguardian.demo
+DEMO_ADMIN_PASSWORD=admin123
+
+# Optional: Google Gemini API Key
+# If omitted or invalid, CampusGuardian AI automatically switches to the built-in Local Fallback AI Rule Engine
+GEMINI_API_KEY=
+```
+
+### 3. Database Initialization
+The SQLite database initializes and seeds automatically upon the first server launch:
+- Database location: `server/data/campusguardian.sqlite`
+- Automatic tables created: `users`, `sessions`, `reports`, `alerts`, `alert_acknowledgements`, `audit_logs`.
+- Pre-seeded with 5 realistic university incidents, 2 disaster indicator notices, and the 2 demo accounts.
+
+### 4. Running the Application Locally
+
+#### Option A: Run Both Client & Server Concurrently (Recommended)
 ```bash
 npm run dev
+# or
+npm start
 ```
 
-Open your browser at:
-👉 **`http://localhost:3000`**
-
-*(Note: You can also access the built production app directly at `http://localhost:5000`)*
-
----
-
-## 🧪 Hackathon Evaluation Demo Workflow
-
-Follow these steps to experience the complete end-to-end user journey:
-
-1. **Landing Page (`http://localhost:3000`)**:
-   - Review the headline: *"A Safer. Smarter. More Accessible Campus."*
-   - Observe live telemetry counters and the 4-step workflow diagram.
-   - Click the **"Report Campus Issue"** button.
-
-2. **Report Issue Page**:
-   - Click on the test scenario chip: **"Staircase Lighting"** (or type: *"The staircase light near Block C has been broken for three days and it is very dark at night."*).
-   - Ensure location is set to: *"Block C - Staircase 2nd Floor"*.
-   - Click the gradient button: **"Analyze with AI"**.
-   - Watch the AI radar scan. The result card will appear displaying:
-     - **Category**: `Safety`
-     - **Priority**: `High`
-     - **Department**: `Maintenance & Campus Safety`
-     - **Summary**: `Broken lighting near Block C - Staircase 2nd Floor`
-     - **Recommended Action**: `Inspect and replace staircase lighting fixture...`
-     - **Confidence Score**: `94%`
-   - Notice that every field can be edited by the user before submission.
-   - Click **"Confirm & Submit Report"**.
-   - A success receipt appears showing a unique Report ID (e.g. `CG-2026-8492`) with status `Submitted`.
-
-3. **My Reports Page**:
-   - Click **"Track Report in My Reports"**.
-   - See your newly submitted report at the top of the list.
-   - Test the filters: filter by Status (`Submitted`), Priority (`High`), or Category (`Safety`).
-   - Click **"Inspect Timeline"** to view the audit log and detailed dispatch parameters.
-
-4. **Admin Dashboard**:
-   - In the navigation bar, switch the role pill to **Admin** (or click **"Admin Hub"** in the menu).
-   - Observe the live analytics charts powered by Recharts (Category breakdown and Priority pie chart).
-   - In the **Manage & Dispatch Incidents** table, locate your submitted report.
-   - Change its status dropdown from `Submitted` to `In Progress` (or click **"Resolve"**).
-   - Reassign the department dropdown if desired.
-
-5. **AI Campus Assistant**:
-   - Navigate to the **"AI Assistant"** tab.
-   - Click the prompt chip: *"Where do I report a broken projector?"* (or ask your own campus question).
-   - GuardianBot will immediately answer with relevant guidance and present interactive action buttons (e.g. *Report IT / AV Problem*).
-   - Click the action button to verify smooth cross-page routing.
-
-6. **Emergency Center & Accessibility Center**:
-   - Click the pulsing red **"EMERGENCY SOS"** button in the navbar to test the emergency modal.
-   - Navigate to the **Emergency Center** to explore campus speed-dials and safety instructions.
-   - Navigate to the **Accessibility Center** to review step-free facility statuses and test the **Mobility Escort Request** dispatch.
-
----
-
-## 🔒 Security & Privacy Practices
-- **Server-Side API Key Storage**: Gemini API keys are only read on the Node.js Express server (`process.env.GEMINI_API_KEY`). They are **never** bundled or exposed to the client browser.
-- `.env` is added to `.gitignore`.
-- Fictional/demo campus data is strictly maintained with prominent user disclaimers for real-world emergency safety.
-
----
-
-## 📁 Repository Structure
-
-```
-vaibhav-patil-24SUUBEAML673-/
-├── client/                      # React 18 + Vite + Tailwind CSS Frontend
-│   ├── public/
-│   ├── src/
-│   │   ├── components/          # Navbar, Footer, ToastContainer, EmergencyModal
-│   │   ├── context/             # ReportsContext (global state, localStorage, sync)
-│   │   ├── data/                # Initial realistic campus reports & announcements
-│   │   ├── pages/               # 9 complete responsive pages
-│   │   │   ├── LandingPage.jsx
-│   │   │   ├── StudentDashboard.jsx
-│   │   │   ├── ReportIssuePage.jsx
-│   │   │   ├── MyReportsPage.jsx
-│   │   │   ├── AIAssistantPage.jsx
-│   │   │   ├── AdminDashboard.jsx
-│   │   │   ├── EmergencyCenter.jsx
-│   │   │   ├── AccessibilityCenter.jsx
-│   │   │   └── SettingsPage.jsx
-│   │   ├── services/            # Frontend API client with offline fallback
-│   │   ├── App.jsx              # Main application router & layout
-│   │   ├── index.css            # Tailwind directives, glassmorphism, contrast
-│   │   └── main.jsx             # React entry point
-│   ├── index.html
-│   ├── package.json
-│   ├── tailwind.config.js
-│   └── vite.config.js
-├── server/                      # Node.js + Express Backend
-│   ├── routes/
-│   │   └── api.js               # REST endpoints for analyze, chat, reports CRUD
-│   │── services/
-│   │   └── aiService.js         # Gemini 2.0 API + Local Fallback Rule Engine
-│   ├── index.js                 # Express server & static hosting
-│   ├── package.json
-│   ├── .env.example
-│   └── .env
-├── .gitignore
-├── .env.example
-├── package.json                 # Unified orchestrator (concurrently)
-└── README.md                    # Project documentation & demo guide
+#### Option B: Run Server and Client in Separate Terminals
+**Terminal 1 (Backend API Server):**
+```bash
+cd server
+npm start
+# Server starts at http://localhost:5000
 ```
 
+**Terminal 2 (Frontend Client):**
+```bash
+cd client
+npm run dev
+# Client starts at http://localhost:3000 (or http://localhost:5173)
+```
+
+Visit the application in your browser at `http://localhost:3000` (or `http://localhost:5000` if serving client build).
+
 ---
 
-## 👥 Hackathon Team & Credits
-- **Project**: CampusGuardian AI
-- **Track**: Smart Campus Solutions
-- **Author**: Vaibhav Patil (`24SUUBEAML673`)
-- **Institution**: Aegis Institute of Technology (Demo Campus)
+## 🧪 Automated Testing & Acceptance Verification
+
+We provide an end-to-end automated verification script (`test_workflow.js`) that tests all 18 hackathon requirements against the live backend:
+
+```bash
+npm test
+# or
+node test_workflow.js
+```
+
+### Verification Criteria Tested (47/47 Tests Passing 100%):
+1. **System Health Check**: Verifies HTTP 200, online status, and SQLite engine.
+2. **Public Telemetry**: Confirms aggregate stats are public while zero student PII is exposed.
+3. **Student Authentication**: Authenticates `student@campusguardian.demo` and validates token.
+4. **Administrator Authentication**: Authenticates `admin@campusguardian.demo` and validates admin token.
+5. **Session Persistence**: Restores user identity via `/api/auth/me`.
+6. **Role-Based Access Control (RBAC)**:
+   - Student blocked from `/api/audit-logs` (403 Forbidden).
+   - Student blocked from `/api/reports/export` (403 Forbidden).
+   - Unauthenticated requests rejected from `/api/reports` (401 Unauthorized).
+7. **AI Incident Analysis**: Validates natural language classification into `Electrical Issue`, `High` priority, confidence rating, and recommended remedial steps.
+8. **Student Report Creation**: Stores new incident report into SQLite database.
+9. **Student Data Scoping**: Student only retrieves their own submitted reports.
+10. **Admin Data Scoping**: Administrator retrieves all submitted reports across the university.
+11. **Admin Status & Notes Update**: Updates status to `In Progress` and verifies timeline entry.
+12. **Disaster Indicator Alert Publication**: Administrator broadcasts an active severe weather alert.
+13. **Student Alert Visibility**: Active broadcast alerts are visible to students.
+14. **Student Alert Acknowledgement**: Student marks alert as acknowledged in SQLite.
+15. **Administrator All-Clear Notice**: Declares all-clear with resolution notes.
+16. **Audit Trail Logging**: Verifies that administrator actions are logged with timestamps.
+17. **Data Export**: Validates CSV and JSON export data generation.
+18. **Session Logout**: Verifies session invalidation on logout.
+
+---
+
+## 🛡️ Security Architecture & Privacy Safeguards
+
+1. **Role-Based Access Control (RBAC)**:
+   - Authorization is enforced strictly on the server backend. Changing client-side state or URL hashes cannot grant access to administrator APIs.
+   - Student requests to admin routes return `403 Forbidden`.
+2. **Cryptographic Password Storage**:
+   - Passwords are encrypted using Node's native `node:crypto.scryptSync` with unique 16-byte random salts. Plaintext passwords are never stored.
+3. **Token-Based Server Sessions**:
+   - Sessions are generated with 64-character random cryptographic tokens stored in the SQLite `sessions` table.
+   - Configurable session expiration (`SESSION_EXPIRY_HOURS=168`).
+   - Logout immediately deletes the session token from SQLite.
+4. **Zero Secrets in Frontend**:
+   - Gemini API keys, demo account passwords, and database connection secrets remain strictly on the backend.
+5. **Public Page Privacy**:
+   - The public Welcome Page accesses only sanitized aggregate counters (`/api/stats/public`). Private student names, emails, and specific incident reports are never rendered on public views.
+6. **Audit Trail Logging**:
+   - Every administrative action (status changes, priority adjustments, work order assignments, disaster alert broadcasts, all-clear declarations) is written to `audit_logs` with actor email, role, action, and timestamp.
+
+---
+
+## ⚠️ Disaster Alert & AI Safety Boundaries
+
+To satisfy engineering hackathon ethics and safety guidelines:
+1. **No Automated False Alarms**: The AI incident analyzer is an advisory triage tool and will **never** independently declare a disaster or trigger campus sirens.
+2. **Mandatory Human-in-the-Loop Confirmation**: Publishing any `Critical` severity disaster alert requires explicit, two-step confirmation by an authorized administrator.
+3. **Simulated Demo Notice**: In-app disaster notices are visibly stamped with `[DEMO / SIMULATED]`.
+4. **Emergency Services Boundary**: CampusGuardian AI does not replace municipal 911/112 emergency services or physical campus siren towers. Official contact numbers (Security: 555-0199, Medical: 555-0188) are clearly configured.
+
+---
+
+## 🔮 Future Scope
+- **Push Notification Integration**: Web Push / ServiceWorker alerts for real-time background push during critical broadcasts.
+- **Physical Sensor Telemetry**: Integration with IoT building smoke sensors, earthquake accelerometers, and flood water level sensors via MQTT.
+- **Campus Blue Light GIS Map**: Interactive 3D vector map of physical emergency Blue Light stations with live GPS navigation.
+- **Enterprise SSO / SAML 2.0**: University Active Directory / Shibboleth integration for campus-wide single sign-on.
+
+---
+
+## 📄 License
+Created for engineering hackathon demonstration. Open source under the MIT License.

@@ -3,135 +3,157 @@ import { useReports } from '../context/ReportsContext';
 import {
   Shield,
   LayoutDashboard,
-  AlertCircle,
+  AlertTriangle,
   FileText,
   Bot,
   SlidersHorizontal,
   Accessibility,
-  Settings,
   PhoneCall,
+  Radio,
+  LogOut,
+  User,
+  Sparkles,
   Menu,
   X,
-  Sparkles,
-  UserCheck
+  KeyRound,
+  GraduationCap
 } from 'lucide-react';
+import ThemeSelector from './ThemeSelector';
 import EmergencyModal from './EmergencyModal';
 
 export default function Navbar() {
   const {
     activeTab,
     setActiveTab,
-    userRole,
-    setUserRole,
+    currentUser,
+    logout,
+    openAuthModal,
     systemHealth,
-    reports
+    reports,
+    activeAlerts
   } = useReports();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [emergencyModalOpen, setEmergencyModalOpen] = useState(false);
 
-  const pendingCount = reports.filter(r => r.status !== 'Resolved').length;
-
-  const navItems = [
-    { id: 'landing', label: 'Home', icon: Shield },
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'report', label: 'Report Issue', icon: AlertCircle, highlight: true },
-    { id: 'my-reports', label: 'My Reports', icon: FileText, badge: pendingCount > 0 ? pendingCount : null },
-    { id: 'assistant', label: 'AI Assistant', icon: Bot, ai: true },
-    { id: 'admin', label: 'Admin Hub', icon: SlidersHorizontal },
-    { id: 'emergency', label: 'Emergency', icon: PhoneCall, urgent: true },
-    { id: 'accessibility', label: 'Accessibility', icon: Accessibility },
-    { id: 'settings', label: 'Settings', icon: Settings },
-  ];
+  const pendingCount = (reports || []).filter(r => r.status !== 'Resolved' && r.status !== 'Closed').length;
+  const isGemini = systemHealth?.aiEngine?.geminiConfigured;
 
   const handleNavClick = (id) => {
     setActiveTab(id);
     setMobileMenuOpen(false);
   };
 
-  const isGemini = systemHealth?.aiEngine?.geminiConfigured;
+  // Nav Items tailored by role
+  const navItems = [
+    { id: 'welcome', label: 'Welcome', icon: Shield },
+    ...(currentUser ? [
+      currentUser.role === 'admin'
+        ? { id: 'admin', label: 'Operations Hub', icon: SlidersHorizontal }
+        : { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'report', label: 'Report Issue', icon: AlertTriangle },
+      { id: 'my-reports', label: 'My Reports', icon: FileText, badge: pendingCount > 0 ? pendingCount : null },
+    ] : []),
+    {
+      id: 'disaster-indicator',
+      label: 'Disaster Indicator',
+      icon: Radio,
+      alertCount: (activeAlerts || []).length > 0 ? activeAlerts.length : null
+    },
+    { id: 'assistant', label: 'AI Assistant', icon: Bot },
+    { id: 'emergency', label: 'Emergency SOS', icon: PhoneCall, urgent: true },
+    { id: 'accessibility', label: 'Accessibility', icon: Accessibility }
+  ];
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-navy-950/85 backdrop-blur-xl border-b border-slate-800/80 transition-all">
-        {/* Top Mini Banner */}
-        <div className="bg-gradient-to-r from-blue-950/80 via-indigo-950/80 to-purple-950/80 border-b border-slate-800/60 px-4 py-1 text-xs flex items-center justify-between text-slate-300">
+      <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
+        {/* Top Mini Telemetry Header */}
+        <div className="bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 px-4 py-1 text-xs flex items-center justify-between text-slate-600 dark:text-slate-400">
           <div className="flex items-center gap-2">
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span className="font-medium text-slate-200">CampusGuardian AI</span>
-            <span className="hidden sm:inline text-slate-400">— "A Safer. Smarter. More Accessible Campus."</span>
+            <span className="font-semibold text-slate-800 dark:text-slate-200">CampusGuardian AI</span>
+            <span className="hidden sm:inline text-slate-400 dark:text-slate-500">— "A Safer Campus. A Smarter Response."</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             {/* AI Status Badge */}
-            <div className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${
+            <div className={`hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border ${
               isGemini
-                ? 'bg-blue-500/10 border-blue-500/30 text-blue-300'
-                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                ? 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-300'
+                : 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300'
             }`}>
               <Sparkles className="w-3 h-3" />
-              <span>{isGemini ? 'Gemini 2.0 AI Online' : 'Local AI Engine Active'}</span>
+              <span>{isGemini ? 'Gemini 2.0 AI' : 'Local AI Engine'}</span>
             </div>
 
-            {/* Quick Role Switcher */}
-            <div className="flex items-center gap-1 bg-slate-900/80 p-0.5 rounded-lg border border-slate-800 text-[11px]">
-              <span className="text-slate-400 pl-1.5 hidden md:inline">Role:</span>
-              <button
-                onClick={() => setUserRole('student')}
-                className={`px-2 py-0.5 rounded transition ${
-                  userRole === 'student'
-                    ? 'bg-blue-600 text-white font-medium'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Student
-              </button>
-              <button
-                onClick={() => setUserRole('admin')}
-                className={`px-2 py-0.5 rounded transition ${
-                  userRole === 'admin'
-                    ? 'bg-purple-600 text-white font-medium'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Admin
-              </button>
-            </div>
+            {/* Compact Theme Selector */}
+            <ThemeSelector compact={true} />
+
+            {/* User Session Status */}
+            {currentUser ? (
+              <div className="flex items-center gap-2 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 text-[11px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="text-slate-700 dark:text-slate-300 font-medium truncate max-w-[120px]">
+                  {currentUser.name.split(' ')[0]}
+                </span>
+                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold uppercase bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                  {currentUser.role}
+                </span>
+                <button
+                  onClick={logout}
+                  title="Sign out of your session"
+                  className="text-slate-400 hover:text-red-600 ml-1 p-0.5 transition"
+                  aria-label="Logout"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => openAuthModal('student')}
+                  className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 transition"
+                >
+                  Student Login
+                </button>
+                <button
+                  onClick={() => openAuthModal('admin')}
+                  className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition"
+                >
+                  Admin Login
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Main Navbar */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           {/* Logo & Brand */}
           <div
-            onClick={() => handleNavClick('landing')}
-            className="flex items-center gap-3 cursor-pointer group"
+            onClick={() => handleNavClick('welcome')}
+            className="flex items-center gap-2.5 cursor-pointer group"
           >
-            <div className="relative">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-glow-blue group-hover:scale-105 transition-transform">
-                <Shield className="w-5 h-5 text-white" />
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-navy-950" />
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm">
+              <Shield className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-lg font-bold tracking-tight text-white group-hover:text-blue-300 transition-colors">
+                <span className="text-base font-bold tracking-tight text-slate-900 dark:text-slate-100">
                   CampusGuardian
                 </span>
-                <span className="px-1.5 py-0.5 text-[10px] font-extrabold uppercase rounded bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
+                <span className="px-1.5 py-0.2 text-[10px] font-bold uppercase rounded bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900">
                   AI
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 -mt-0.5 font-medium tracking-wide">
-                Smart Campus Safety & Operations
-              </p>
             </div>
           </div>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -141,21 +163,27 @@ export default function Navbar() {
                 <button
                   key={item.id}
                   onClick={() => handleNavClick(item.id)}
-                  className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                  className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     isActive
-                      ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30 shadow-sm'
-                      : item.highlight
-                      ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-glow-blue'
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900'
                       : item.urgent
-                      ? 'text-rose-300 hover:bg-rose-500/10'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                      ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${item.ai ? 'text-indigo-400' : item.urgent ? 'text-rose-400' : ''}`} />
+                  <Icon className="w-3.5 h-3.5" />
                   <span>{item.label}</span>
 
+                  {/* Active Alerts Pill */}
+                  {item.alertCount && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-red-600 text-white">
+                      {item.alertCount}
+                    </span>
+                  )}
+
+                  {/* Pending Reports Badge */}
                   {item.badge && (
-                    <span className="ml-1 px-1.5 py-0.2 bg-blue-500 text-white rounded-full text-[10px] font-bold">
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900">
                       {item.badge}
                     </span>
                   )}
@@ -164,32 +192,58 @@ export default function Navbar() {
             })}
           </nav>
 
-          {/* Right Action: Emergency Trigger Button */}
-          <div className="flex items-center gap-3">
+          {/* Desktop Right Actions */}
+          <div className="hidden lg:flex items-center gap-2">
             <button
               onClick={() => setEmergencyModalOpen(true)}
-              className="relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 border border-rose-400/30 shadow-glow-rose transition active:scale-95 animate-pulse"
-              title="Open Emergency SOS"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-red-600 hover:bg-red-700 transition"
             >
               <PhoneCall className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">EMERGENCY SOS</span>
-              <span className="sm:hidden">SOS</span>
+              <span>SOS Dispatch</span>
             </button>
 
-            {/* Mobile Hamburger */}
+            {currentUser ? (
+              <button
+                onClick={logout}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                title="Sign out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Logout</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => openAuthModal('student')}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 transition"
+              >
+                <span>Sign In</span>
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Menu Button */}
+          <div className="flex items-center gap-2 lg:hidden">
+            <button
+              onClick={() => setEmergencyModalOpen(true)}
+              className="p-1.5 rounded-lg bg-red-600 text-white text-xs font-bold"
+              title="SOS Emergency"
+            >
+              <PhoneCall className="w-4 h-4" />
+            </button>
+
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition"
+              className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               aria-label="Toggle Navigation Menu"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Navigation Drawer */}
+        {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-slate-800 bg-navy-950/95 backdrop-blur-2xl px-4 pt-3 pb-6 space-y-1.5">
+          <div className="lg:hidden border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -198,55 +252,32 @@ export default function Navbar() {
                 <button
                   key={item.id}
                   onClick={() => handleNavClick(item.id)}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition ${
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium ${
                     isActive
-                      ? 'bg-blue-600 text-white font-semibold'
-                      : 'text-slate-300 hover:bg-slate-900 hover:text-white'
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 font-semibold'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5">
                     <Icon className="w-4 h-4" />
                     <span>{item.label}</span>
                   </div>
                   {item.badge && (
-                    <span className="px-2 py-0.5 bg-blue-500 text-white rounded-full text-xs font-bold">
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-700 font-bold">
                       {item.badge}
                     </span>
                   )}
                 </button>
               );
             })}
-
-            <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between px-2">
-              <span className="text-xs text-slate-400">Current Role Mode:</span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setUserRole('student')}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                    userRole === 'student' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  Student
-                </button>
-                <button
-                  onClick={() => setUserRole('admin')}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                    userRole === 'admin' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  Admin
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </header>
 
-      {/* Global Emergency Modal */}
-      <EmergencyModal
-        isOpen={emergencyModalOpen}
-        onClose={() => setEmergencyModalOpen(false)}
-      />
+      {/* Emergency Modal */}
+      {emergencyModalOpen && (
+        <EmergencyModal onClose={() => setEmergencyModalOpen(false)} />
+      )}
     </>
   );
 }

@@ -4,55 +4,73 @@
  * 1. Gemini API Integration via secure backend
  * 2. High-precision Local Fallback Rule & Keyword Classifier
  * 3. Campus Knowledge Base Assistant with Action Recommendations
+ * 
+ * Complies with engineering hackathon safety requirements:
+ * - AI recommendations are preliminary suggestions, not verified incidents.
+ * - AI cannot publish campus-wide emergency alerts directly.
  */
 
 // Comprehensive Campus Knowledge Base for offline/fallback intelligence
 const CAMPUS_KNOWLEDGE_BASE = [
   {
-    keywords: ['projector', 'hdmi', 'screen', 'audio', 'speaker', 'mic', 'microphone', 'wifi', 'internet', 'network', 'login', 'portal', 'computer', 'lab pc', 'printer'],
-    category: 'IT/Cybersecurity',
-    department: 'Campus IT & AV Services',
-    quickAnswer: 'For classroom technology (projectors, audio, lab workstations) or network connectivity issues, Campus IT provides rapid classroom support. You can file an instant work order or contact Classroom AV Support at Ext. 4357.',
-    action: { label: 'Report IT / AV Problem', route: '/report', prefillCategory: 'IT/Cybersecurity' }
+    keywords: ['fire', 'smoke', 'alarm', 'flame', 'gas', 'extinguisher', 'evacuate'],
+    category: 'Fire Safety',
+    department: 'Campus Fire & Life Safety Operations',
+    quickAnswer: 'If you see an active fire or smell burning gas, immediately activate the nearest manual pull station and evacuate the building via stairs. Do not use elevators. Campus Fire Marshalls and municipal crews are notified immediately upon alarm.',
+    action: { label: 'Report Fire Hazard', route: 'report', prefillCategory: 'Fire Safety', priority: 'Critical' }
   },
   {
-    keywords: ['id card', 'lost card', 'wallet', 'keys', 'found', 'backpack', 'phone', 'laptop left', 'lost and found', 'missing item'],
-    category: 'Lost & Found',
-    department: 'Student Affairs & Security Lost & Found',
-    quickAnswer: 'Lost student IDs and valuables should be turned into or claimed at the Student Affairs Central Desk (Student Center, Room 102) or the Campus Security Office. If you lost your ID card, immediately freeze your campus meal/door access via the student portal.',
-    action: { label: 'File Lost & Found Report', route: '/report', prefillCategory: 'Lost & Found' }
+    keywords: ['spark', 'shock', 'live wire', 'power outage', 'breaker', 'light broken', 'dark', 'staircase light', 'lighting', 'outlet'],
+    category: 'Electrical Issue',
+    department: 'Campus Electrical & Utility Services',
+    quickAnswer: 'Electrical hazards such as sparking fixtures, live wires, and unlit nocturnal corridors pose serious safety risks. Keep clear of exposed wiring. Campus electrical technicians prioritize illuminated safety pathways and emergency breaker checks.',
+    action: { label: 'Report Electrical Issue', route: 'report', prefillCategory: 'Electrical Issue', priority: 'High' }
   },
   {
-    keywords: ['water leak', 'pipe', 'flood', 'ceiling leak', 'restroom', 'toilet', 'tap', 'drain', 'plumbing', 'overflow'],
-    category: 'Maintenance',
-    department: 'Facilities & Emergency Plumbing',
-    quickAnswer: 'Active water leaks and plumbing failures are prioritized by Facilities & Operations. For major leaks risking electrical fixtures or flooding, our emergency maintenance crew is dispatched within 15 minutes.',
-    action: { label: 'Report Water Leak', route: '/report', prefillCategory: 'Maintenance', priority: 'High' }
+    keywords: ['water leak', 'pipe', 'flood', 'ceiling leak', 'restroom', 'toilet', 'tap', 'drain', 'plumbing', 'overflow', 'broken door', 'roof', 'window broken'],
+    category: 'Building Maintenance',
+    department: 'Facilities Management & Maintenance',
+    quickAnswer: 'Active plumbing leaks, broken window locks, or structural facility issues are handled by Facilities Management. Urgent water leaks near electrical equipment receive emergency response within 15 minutes.',
+    action: { label: 'Report Building Maintenance', route: 'report', prefillCategory: 'Building Maintenance', priority: 'High' }
+  },
+  {
+    keywords: ['security', 'emergency', 'police', 'threat', 'stalk', 'harass', 'suspicious', 'assault', 'intruder', 'safe walk', 'guard', 'lock broken', 'blue light'],
+    category: 'Security',
+    department: 'Campus Security & Safety Operations',
+    quickAnswer: 'Campus Safety Officers patrol 24/7. Blue light emergency phone towers are stationed throughout the campus. For immediate threats or suspicious persons, call Security Dispatch at Ext. 5555 or trigger Emergency SOS in the app.',
+    action: { label: 'Open Emergency Center', route: 'emergency' }
+  },
+  {
+    keywords: ['medical', 'injury', 'bleed', 'unconscious', 'faint', 'first aid', 'ambulance', 'paramedic', 'allergic', 'cardiac', 'aed'],
+    category: 'Medical Assistance',
+    department: 'Campus Health & Emergency Medical Services',
+    quickAnswer: 'For severe medical emergencies, dial Ext. 5556 immediately or call 911/112. AED defibrillators are installed in every main building lobby. Do not move an injured person with neck or back trauma unless imminent hazard exists.',
+    action: { label: 'Contact Medical Dispatch', route: 'emergency' }
   },
   {
     keywords: ['accessibility', 'wheelchair', 'ramp', 'elevator', 'lift', 'braille', 'hearing', 'mobility', 'accessible', 'disability', 'escort', 'barrier'],
     category: 'Accessibility',
-    department: 'Disability & Accessibility Services',
+    department: 'Disability & Accessibility Infrastructure',
     quickAnswer: 'Campus Accessibility Services provides mobility escorts, accessible shuttle bookings, and maintains step-free navigation across all campus buildings. All reported accessibility barriers receive immediate priority status.',
-    action: { label: 'Visit Accessibility Center', route: '/accessibility' }
+    action: { label: 'Visit Accessibility Center', route: 'accessibility' }
   },
   {
-    keywords: ['security', 'emergency', 'police', 'threat', 'stalk', 'harass', 'suspicious', 'assault', 'fire', 'dark', 'light broken', 'safe walk', 'guard'],
-    category: 'Safety',
-    department: 'Campus Safety & Rapid Response',
-    quickAnswer: 'Campus Safety Officers patrol 24/7. Blue light emergency phone towers are stationed every 200 meters. For immediate emergencies, call Security Dispatch at Ext. 5555 or trigger the Emergency SOS button in the app.',
-    action: { label: 'Open Emergency Center', route: '/emergency' }
+    keywords: ['trash', 'garbage', 'smell', 'odor', 'restroom clean', 'cleaning', 'biological', 'pest', 'spill', 'sanitation'],
+    category: 'Sanitation',
+    department: 'Campus Environmental & Custodial Services',
+    quickAnswer: 'Sanitation, custodial replenishment, and environmental biohazard cleanup are managed by Environmental Services. Submit a location-tagged request and building custodians will be dispatched.',
+    action: { label: 'Report Sanitation Issue', route: 'report', prefillCategory: 'Sanitation' }
   },
   {
-    keywords: ['air condition', 'ac', 'heating', 'hvac', 'too hot', 'too cold', 'ventilation', 'smell', 'odor', 'trash', 'cleaning', 'garbage'],
-    category: 'Facilities',
-    department: 'Facilities & Environmental Services',
-    quickAnswer: 'Temperature controls and custodial cleanups are handled by Environmental Services. Submit a location-tagged request and building engineers will calibrate the HVAC zone.',
-    action: { label: 'Report Facility Issue', route: '/report', prefillCategory: 'Facilities' }
+    keywords: ['projector', 'hdmi', 'wifi', 'internet', 'lost and found', 'id card', 'wallet', 'keys', 'backpack'],
+    category: 'Other',
+    department: 'General Campus Operations',
+    quickAnswer: 'For lost items, visit the Student Affairs Central Desk or Campus Security Office. For campus IT and network issues, submit an IT work order or contact Classroom Support at Ext. 4357.',
+    action: { label: 'Report Campus Issue', route: 'report', prefillCategory: 'Other' }
   }
 ];
 
-// Fallback Issue Analyzer
+// Fallback Issue Analyzer - Deterministic High Accuracy Rule Engine
 function fallbackAnalyzeIssue(text = '', location = '') {
   const lower = text.toLowerCase();
   const lowerLoc = (location || '').toLowerCase();
@@ -60,30 +78,30 @@ function fallbackAnalyzeIssue(text = '', location = '') {
 
   let category = 'Other';
   let priority = 'Medium';
-  let department = 'Campus Operations Desk';
-  let confidence = 86;
+  let department = 'General Campus Operations';
+  let confidence = 88;
   let summary = '';
   let recommendedAction = '';
 
-  // Critical indicators
+  // 1. Critical signals
   const criticalSignals = [
-    'fire', 'smoke', 'explosion', 'sparking', 'sparks', 'gas leak', 'chemical',
-    'weapon', 'assault', 'fight', 'bleeding', 'unconscious', 'cardiac', 'collapse',
-    'live wire', 'electrocution', 'active threat', 'stuck in elevator'
+    'fire', 'smoke', 'explosion', 'gas leak', 'weapon', 'assault', 'fight',
+    'bleeding', 'unconscious', 'cardiac', 'collapse', 'live wire', 'electrocution',
+    'active threat', 'stuck in elevator'
   ];
 
-  // High indicators
+  // 2. High signals
   const highSignals = [
-    'dark', 'broken light', 'broken lock', 'cannot lock', 'security gate', 'flood',
-    'water leaking', 'slippery', 'ice', 'blocked exit', 'fire exit blocked',
+    'spark', 'sparking', 'dark', 'broken light', 'staircase light', 'broken lock', 'cannot lock',
+    'flood', 'water leaking', 'pipe burst', 'blocked exit', 'fire exit blocked',
     'broken ramp', 'wheelchair ramp blocked', 'elevator down', 'elevator broken',
     'harassment', 'stalking', 'suspicious person', 'theft', 'stolen'
   ];
 
-  // Low indicators
+  // 3. Low signals
   const lowSignals = [
     'flickering', 'paint', 'scuffed', 'trash can full', 'litter', 'poster',
-    'dust', 'lost book', 'water bottle', 'squeaky door', 'remote battery'
+    'dust', 'lost book', 'water bottle', 'squeaky door', 'remote battery', 'lost keys'
   ];
 
   // Priority detection
@@ -92,98 +110,94 @@ function fallbackAnalyzeIssue(text = '', location = '') {
     confidence = 96;
   } else if (highSignals.some(k => combined.includes(k))) {
     priority = 'High';
-    confidence = 92;
+    confidence = 94;
   } else if (lowSignals.some(k => combined.includes(k))) {
     priority = 'Low';
-    confidence = 88;
+    confidence = 89;
   }
 
-  // Category & Department Detection
+  // Category Detection
   if (
-    combined.includes('light') || combined.includes('dark') || combined.includes('security') ||
-    combined.includes('lock') || combined.includes('theft') || combined.includes('suspicious') ||
-    combined.includes('harass') || combined.includes('safety') || combined.includes('door access') ||
-    combined.includes('intruder') || combined.includes('blue light')
+    combined.includes('fire') || combined.includes('smoke') || combined.includes('alarm') ||
+    combined.includes('flame') || combined.includes('extinguisher') || combined.includes('gas leak')
   ) {
-    category = 'Safety';
-    if (combined.includes('light') || combined.includes('dark')) {
-      department = 'Maintenance & Campus Safety';
-      summary = location ? `Broken lighting near ${location}` : 'Broken lighting and low visibility hazard';
-      recommendedAction = 'Inspect and replace staircase lighting; restore illuminated pathway.';
-      confidence = 94;
-    } else {
-      department = 'Campus Security & Safety Operations';
-      summary = `Safety concern regarding security vulnerability near ${location || 'campus facility'}`;
-      recommendedAction = priority === 'Critical' || priority === 'High'
-        ? 'Dispatch security patrol unit to secure area and inspect lighting/access control immediately.'
-        : 'Log security patrol check and verify perimeter sensors during next scheduled round.';
-    }
+    category = 'Fire Safety';
+    department = 'Campus Fire & Life Safety Operations';
+    summary = location ? `Fire safety concern reported at ${location}` : 'Fire safety hazard reported';
+    recommendedAction = 'Dispatch fire safety marshall for immediate on-site inspection and alarm verification.';
+    confidence = Math.max(confidence, 95);
+  } else if (
+    combined.includes('spark') || combined.includes('shock') || combined.includes('live wire') ||
+    combined.includes('light') || combined.includes('dark') || combined.includes('power') ||
+    combined.includes('breaker') || combined.includes('electrical') || combined.includes('outlet')
+  ) {
+    category = 'Electrical Issue';
+    department = 'Campus Electrical & Utility Services';
+    summary = location ? `Electrical hazard or lighting failure near ${location}` : 'Electrical failure and low visibility hazard';
+    recommendedAction = 'Inspect electrical fixture, verify circuit isolation, and replace damaged wiring/lighting.';
+    confidence = Math.max(confidence, 94);
+  } else if (
+    combined.includes('leak') || combined.includes('pipe') || combined.includes('plumbing') ||
+    combined.includes('water') || combined.includes('ceiling') || combined.includes('roof') ||
+    combined.includes('door broken') || combined.includes('window broken') || combined.includes('handrail')
+  ) {
+    category = 'Building Maintenance';
+    department = 'Facilities Management & Maintenance';
+    summary = location ? `Building maintenance issue at ${location}` : 'Facility infrastructure repair required';
+    recommendedAction = 'Issue work order to maintenance crew to inspect physical damage and isolate plumbing/structural fault.';
+    confidence = Math.max(confidence, 93);
+  } else if (
+    combined.includes('security') || combined.includes('theft') || combined.includes('intruder') ||
+    combined.includes('suspicious') || combined.includes('stalk') || combined.includes('harass') ||
+    combined.includes('lock') || combined.includes('unauthorized') || combined.includes('weapon')
+  ) {
+    category = 'Security';
+    department = 'Campus Security & Safety Operations';
+    summary = location ? `Security observation logged near ${location}` : 'Security and physical access vulnerability';
+    recommendedAction = 'Dispatch security patrol unit to secure area and verify perimeter access controls.';
+    confidence = Math.max(confidence, 93);
+  } else if (
+    combined.includes('medical') || combined.includes('injury') || combined.includes('unconscious') ||
+    combined.includes('bleed') || combined.includes('ambulance') || combined.includes('cardiac') ||
+    combined.includes('allergic') || combined.includes('paramedic')
+  ) {
+    category = 'Medical Assistance';
+    department = 'Campus Health & Emergency Medical Services';
+    summary = location ? `Medical assistance requested at ${location}` : 'Medical assistance requirement';
+    recommendedAction = 'Alert emergency medical team and dispatch first responder with first-aid trauma kit.';
+    confidence = Math.max(confidence, 96);
   } else if (
     combined.includes('ramp') || combined.includes('wheelchair') || combined.includes('elevator') ||
     combined.includes('lift') || combined.includes('braille') || combined.includes('tactile') ||
-    combined.includes('automatic door') || combined.includes('accessible') || combined.includes('hearing loop')
+    combined.includes('accessible') || combined.includes('disability') || combined.includes('hearing loop')
   ) {
     category = 'Accessibility';
     department = 'Disability & Accessibility Infrastructure';
-    // Accessibility disruptions are automatically elevated to at least High
     if (priority === 'Medium' || priority === 'Low') priority = 'High';
-    summary = location ? `Accessibility barrier reported at ${location}` : 'Physical or structural accessibility barrier';
-    recommendedAction = 'Deploy accessibility rapid response crew to clear obstruction and verify ADA compliance.';
-    confidence = 96;
+    summary = location ? `Accessibility barrier reported at ${location}` : 'Physical accessibility barrier';
+    recommendedAction = 'Deploy accessibility team to clear obstruction and ensure continuous ADA barrier-free access.';
+    confidence = Math.max(confidence, 95);
   } else if (
-    combined.includes('projector') || combined.includes('hdmi') || combined.includes('wifi') ||
-    combined.includes('internet') || combined.includes('network') || combined.includes('computer') ||
-    combined.includes('login') || combined.includes('monitor') || combined.includes('audio') ||
-    combined.includes('smart board') || combined.includes('printer')
+    combined.includes('trash') || combined.includes('garbage') || combined.includes('cleaning') ||
+    combined.includes('smell') || combined.includes('odor') || combined.includes('biological') ||
+    combined.includes('restroom clean') || combined.includes('spill')
   ) {
-    category = 'IT/Cybersecurity';
-    department = 'Campus IT & Audiovisual Infrastructure';
-    summary = location ? `Classroom AV / IT failure in ${location}` : 'IT hardware or network connectivity failure';
-    recommendedAction = 'Send classroom tech specialist to test cabling, replace faulty hardware, and reboot AV controller.';
-    confidence = 93;
-  } else if (
-    combined.includes('leak') || combined.includes('pipe') || combined.includes('plumbing') ||
-    combined.includes('water') || combined.includes('broken glass') || combined.includes('ceiling') ||
-    combined.includes('roof') || combined.includes('tile') || combined.includes('door broken') ||
-    combined.includes('window broken') || combined.includes('staircase') || combined.includes('handrail')
-  ) {
-    category = 'Maintenance';
-    department = 'Facilities Management & Maintenance';
-    summary = location ? `Maintenance issue at ${location}` : 'Structural or utility maintenance requirement';
-    recommendedAction = 'Issue urgent work order to facilities crew for on-site inspection and physical repair.';
-    confidence = 95;
-  } else if (
-    combined.includes('lost') || combined.includes('found') || combined.includes('wallet') ||
-    combined.includes('keys') || combined.includes('card') || combined.includes('backpack') ||
-    combined.includes('phone') || combined.includes('headphones')
-  ) {
-    category = 'Lost & Found';
-    department = 'Student Affairs & Property Custody';
-    summary = `Personal property reported: ${extractSubject(text, 'unclaimed item')}`;
-    recommendedAction = 'Cross-reference serial/student ID in registry and safeguard item at central desk.';
-    priority = 'Low';
-    confidence = 92;
-  } else if (
-    combined.includes('ac') || combined.includes('heat') || combined.includes('hvac') ||
-    combined.includes('cold') || combined.includes('hot') || combined.includes('trash') ||
-    combined.includes('cleaning') || combined.includes('smell') || combined.includes('restroom clean')
-  ) {
-    category = 'Facilities';
+    category = 'Sanitation';
     department = 'Campus Environmental & Custodial Services';
-    summary = location ? `Environmental service request for ${location}` : 'Environmental and custodial service request';
-    recommendedAction = 'Dispatch custodial/HVAC technician to inspect ambient environment and service area.';
-    confidence = 90;
+    summary = location ? `Sanitation and custodial request for ${location}` : 'Custodial and sanitation service request';
+    recommendedAction = 'Dispatch custodial personnel with cleaning equipment to sanitize and restore area.';
+    confidence = Math.max(confidence, 91);
   } else {
     category = 'Other';
     department = 'General Campus Operations';
-    summary = `Campus issue reported: ${text.slice(0, 45)}...`;
-    recommendedAction = 'Route to operations coordinator for initial triage and manual assessment.';
-    confidence = 86;
+    summary = location ? `Campus observation at ${location}` : `Campus report: ${text.slice(0, 45)}...`;
+    recommendedAction = 'Route to operations desk for initial review and department assignment.';
+    confidence = 88;
   }
 
-  // Refine summary if empty
+  // Refine summary if blank
   if (!summary) {
-    summary = `Reported: ${text.slice(0, 50)}${text.length > 50 ? '...' : ''}`;
+    summary = text.slice(0, 60) + (text.length > 60 ? '...' : '');
   }
 
   return {
@@ -196,31 +210,31 @@ function fallbackAnalyzeIssue(text = '', location = '') {
   };
 }
 
-function extractSubject(text, fallback) {
-  const words = text.split(/\s+/).slice(0, 8).join(' ');
-  return words || fallback;
-}
-
 /**
  * Call Gemini API using REST endpoint
  */
 async function callGeminiAnalyze(apiKey, text, location) {
-  const prompt = `You are the CampusGuardian AI triage engine for a university campus.
-Analyze this student incident report:
+  const prompt = `You are CampusGuardian AI, the intelligent incident analysis assistant for a smart university campus.
+Analyze the following student-reported campus observation:
 Text: "${text}"
 Location: "${location || 'Not specified'}"
 
+Safety guidelines:
+- This is a student observation, NOT a verified critical disaster.
+- Do NOT generate false panic.
+- Classify into one of the exact supported campus categories:
+  "Fire Safety" | "Electrical Issue" | "Building Maintenance" | "Security" | "Medical Assistance" | "Accessibility" | "Sanitation" | "Other"
+
 Respond ONLY with valid, raw JSON (no markdown formatting, no code blocks, no backticks):
 {
-  "category": "Safety" | "Maintenance" | "IT/Cybersecurity" | "Accessibility" | "Lost & Found" | "Facilities" | "Other",
+  "category": "Fire Safety" | "Electrical Issue" | "Building Maintenance" | "Security" | "Medical Assistance" | "Accessibility" | "Sanitation" | "Other",
   "priority": "Critical" | "High" | "Medium" | "Low",
-  "department": "Name of responsible university department",
-  "summary": "Concise 1-sentence title/summary of the issue",
-  "recommendedAction": "Actionable next step for campus dispatch",
+  "department": "Appropriate Campus Department",
+  "summary": "Concise 1-sentence headline of the issue",
+  "recommendedAction": "Recommended next triage action for university staff",
   "confidence": <integer between 80 and 99>
 }`;
 
-  // Using standard Gemini 2.0 Flash or 1.5 Flash API endpoint
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
@@ -243,17 +257,20 @@ Respond ONLY with valid, raw JSON (no markdown formatting, no code blocks, no ba
   const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!rawText) throw new Error('Empty response from Gemini API');
 
-  // Strip possible markdown fences
   const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
   const parsed = JSON.parse(cleaned);
 
-  // Validate fields
+  const validCategories = [
+    'Fire Safety', 'Electrical Issue', 'Building Maintenance', 'Security',
+    'Medical Assistance', 'Accessibility', 'Sanitation', 'Other'
+  ];
+
   return {
-    category: parsed.category || 'Maintenance',
+    category: validCategories.includes(parsed.category) ? parsed.category : 'Building Maintenance',
     priority: ['Critical', 'High', 'Medium', 'Low'].includes(parsed.priority) ? parsed.priority : 'Medium',
     department: parsed.department || 'Campus Facilities',
     summary: parsed.summary || text.slice(0, 60),
-    recommendedAction: parsed.recommendedAction || 'Inspect and address reported issue.',
+    recommendedAction: parsed.recommendedAction || 'Inspect and assess site condition.',
     confidence: Number(parsed.confidence) || 94
   };
 }
@@ -308,11 +325,13 @@ async function chatWithAssistant(message = '', history = []) {
   // If Gemini API is available, ask Gemini with campus context
   if (apiKey && apiKey.trim() && apiKey !== 'your_gemini_api_key_here') {
     try {
-      const contextPrompt = `You are "GuardianBot", the friendly, knowledgeable 24/7 AI Campus Assistant for CampusGuardian AI at Aegis Tech University.
+      const contextPrompt = `You are "GuardianBot", the official 24/7 AI Campus Assistant for CampusGuardian AI.
+Tagline: "A Safer Campus. A Smarter Response."
 Your role:
-- Help students with campus safety, maintenance reporting, accessibility services, lost & found, emergency procedures, and campus navigation.
+- Assist students and staff with campus safety, incident reporting, accessibility accommodations, and emergency procedures.
 - Keep answers helpful, warm, concise, and actionable (2-4 sentences max).
-- If relevant, mention that they can file a report directly or use the emergency/accessibility centers.
+- If relevant, mention that they can file a report directly or view Disaster Indicator alerts.
+- Important safety rule: Remind users that for immediate life-threatening situations, dial 911/112 or contact campus emergency dispatch directly.
 
 Student question: "${message}"`;
 
@@ -334,7 +353,7 @@ Student question: "${message}"`;
           if (matchedEntry && matchedEntry.action) {
             suggestedActions.push(matchedEntry.action);
           } else {
-            suggestedActions.push({ label: 'Report This Issue', route: '/report' });
+            suggestedActions.push({ label: 'Report Campus Issue', route: 'report' });
           }
 
           return {
@@ -353,14 +372,14 @@ Student question: "${message}"`;
   // Local Fallback Knowledge Base response
   if (matchedEntry) {
     const suggestedActions = [matchedEntry.action];
-    if (matchedEntry.category === 'Safety') {
-      suggestedActions.push({ label: 'View Emergency Contacts', route: '/emergency' });
+    if (matchedEntry.category === 'Fire Safety' || matchedEntry.category === 'Security' || matchedEntry.category === 'Medical Assistance') {
+      suggestedActions.push({ label: 'Emergency Center & Protocols', route: 'emergency' });
     } else if (matchedEntry.category === 'Accessibility') {
-      suggestedActions.push({ label: 'Request Mobility Escort', route: '/accessibility' });
+      suggestedActions.push({ label: 'Campus Accessibility Directory', route: 'accessibility' });
     }
 
     return {
-      reply: `${matchedEntry.quickAnswer}\n\nOur system can route this directly to ${matchedEntry.department}.`,
+      reply: `${matchedEntry.quickAnswer}\n\nOur system will route this report directly to ${matchedEntry.department}.`,
       suggestedActions,
       source: 'local_knowledge_base',
       timestamp: new Date().toISOString()
@@ -369,12 +388,12 @@ Student question: "${message}"`;
 
   // General helpful fallback response
   return {
-    reply: `I can assist you with campus safety reports, maintenance work orders, accessibility requests, or lost & found inquiries. For urgent emergencies, please access the Emergency Center immediately. How can I best guide you today?`,
+    reply: `I can assist you with campus safety reports, building maintenance work orders, accessibility requests, or emergency safety protocols. For immediate emergencies, please consult the Emergency Center or dial Campus Dispatch Ext. 5555. How can I assist you today?`,
     suggestedActions: [
-      { label: 'Report Campus Issue', route: '/report' },
-      { label: 'Emergency Center', route: '/emergency' },
-      { label: 'Accessibility Services', route: '/accessibility' },
-      { label: 'View My Reports', route: '/my-reports' }
+      { label: 'Report Campus Issue', route: 'report' },
+      { label: 'Disaster Alerts Indicator', route: 'disaster-indicator' },
+      { label: 'Emergency Hotlines', route: 'emergency' },
+      { label: 'Accessibility Services', route: 'accessibility' }
     ],
     source: 'local_knowledge_base',
     timestamp: new Date().toISOString()

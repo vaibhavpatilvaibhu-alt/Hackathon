@@ -1,348 +1,433 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useReports } from '../context/ReportsContext';
 import {
   FileText,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  MapPin,
   Search,
   Filter,
-  Calendar,
-  MapPin,
-  Building,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
   ChevronRight,
   Eye,
+  PlusCircle,
+  Building,
+  Radio,
+  ArrowRight,
+  RefreshCw,
   X,
-  Sparkles,
-  ArrowUpDown
+  UserCheck,
+  ShieldCheck
 } from 'lucide-react';
+import DisasterIndicatorBanner from '../components/DisasterIndicatorBanner';
 
 export default function MyReportsPage() {
-  const { reports, setActiveTab } = useReports();
+  const {
+    reports,
+    setActiveTab,
+    currentUser,
+    openAuthModal,
+    refreshReports,
+    authToken
+  } = useReports();
 
-  // Filters
-  const [searchQuery, setSearchQuery] = useState('');
+  const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [priorityFilter, setPriorityFilter] = useState('All');
-  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Inspector Modal
-  const [activeReport, setActiveReport] = useState(null);
+  // Sync reports from SQLite DB on mount
+  useEffect(() => {
+    if (authToken && currentUser) {
+      refreshReports();
+    }
+  }, [authToken, currentUser, refreshReports]);
 
-  // Filter logic
-  const filteredReports = reports.filter((item) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.department.toLowerCase().includes(searchQuery.toLowerCase());
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshReports();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-    const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
-    const matchesPriority = priorityFilter === 'All' || item.priority === priorityFilter;
-    const matchesCategory = categoryFilter === 'All' || item.category === categoryFilter;
+  if (!currentUser) {
+    return (
+      <div className="min-h-[500px] flex items-center justify-center p-6">
+        <div className="max-w-md w-full p-8 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto">
+            <FileText className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Authentication Required</h2>
+          <p className="text-xs text-slate-600 dark:text-slate-400">
+            Please log in with student credentials to track your submitted campus incident reports and view maintenance updates.
+          </p>
+          <div className="pt-2">
+            <button
+              onClick={() => openAuthModal('student')}
+              className="px-5 py-2.5 rounded-xl font-medium text-xs text-white bg-blue-600 hover:bg-blue-700 transition"
+            >
+              Sign In as Student
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-    return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
+  const safeReports = Array.isArray(reports) ? reports : [];
+
+  const filteredReports = safeReports.filter(r => {
+    const idStr = (r.id || '').toLowerCase();
+    const locStr = (r.location || '').toLowerCase();
+    const descStr = (r.description || '').toLowerCase();
+    const sumStr = (r.summary || r.title || '').toLowerCase();
+    const searchLower = (search || '').trim().toLowerCase();
+
+    const matchSearch =
+      searchLower === '' ||
+      idStr.includes(searchLower) ||
+      locStr.includes(searchLower) ||
+      descStr.includes(searchLower) ||
+      sumStr.includes(searchLower);
+
+    const matchStatus = statusFilter === 'All' || r.status === statusFilter;
+    return matchSearch && matchStatus;
   });
 
-  const getPriorityStyle = (priority) => {
+  const getPriorityBadge = (priority) => {
     switch (priority) {
       case 'Critical':
-        return 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+        return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-900';
       case 'High':
-        return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+        return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900';
       case 'Medium':
-        return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+        return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900';
       default:
-        return 'bg-slate-500/15 text-slate-300 border-slate-500/30';
+        return 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
     }
   };
 
-  const getStatusStyle = (status) => {
+  const getStatusBadge = (status) => {
     switch (status) {
       case 'Resolved':
-        return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+      case 'Closed':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900';
       case 'In Progress':
-        return 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30';
+        return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900';
       case 'Assigned':
-        return 'bg-indigo-500/15 text-indigo-400 border-indigo-500/30';
+        return 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900';
       case 'Under Review':
-        return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+        return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900';
       default:
-        return 'bg-slate-500/15 text-slate-300 border-slate-500/30';
+        return 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700';
     }
   };
 
-  const resetAllFilters = () => {
-    setSearchQuery('');
-    setStatusFilter('All');
-    setPriorityFilter('All');
-    setCategoryFilter('All');
+  // Pipeline Steps
+  const pipelineSteps = ['Submitted', 'Under Review', 'Assigned', 'In Progress', 'Resolved'];
+
+  const getStepIndex = (status) => {
+    if (status === 'Closed') return 4;
+    const idx = pipelineSteps.indexOf(status);
+    return idx === -1 ? 0 : idx;
   };
 
   return (
     <div className="space-y-6 pb-16">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <DisasterIndicatorBanner />
+
+      {/* Header */}
+      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Campus Issue Registry</h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Browse and monitor the lifecycle of all student-submitted campus issues and work orders.
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="p-1 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900">
+              <FileText className="w-3.5 h-3.5" />
+            </span>
+            <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+              Student Incident Tracker • Synchronized with SQLite DB
+            </span>
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            My Submitted Campus Reports
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Track real-time progress, assigned campus departments, and official administrative notes.
           </p>
         </div>
 
-        <button
-          onClick={() => setActiveTab('report')}
-          className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-glow-blue transition self-start sm:self-auto"
-        >
-          + Submit New Report
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 transition"
+            title="Refresh reports"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-blue-600' : ''}`} />
+          </button>
+
+          <button
+            onClick={() => setActiveTab('report')}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>Report New Issue</span>
+          </button>
+        </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="p-4 sm:p-5 rounded-2xl glass-panel space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {/* Search */}
-          <div className="relative md:col-span-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search ID, location, details..."
-              className="w-full pl-9 pr-3 py-2 rounded-xl text-xs text-white glass-input placeholder:text-slate-500"
-            />
-          </div>
-
-          {/* Status Filter */}
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl text-xs text-white glass-input bg-navy-900"
-            >
-              <option value="All">All Statuses</option>
-              <option value="Submitted">Submitted</option>
-              <option value="Under Review">Under Review</option>
-              <option value="Assigned">Assigned</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Resolved">Resolved</option>
-            </select>
-          </div>
-
-          {/* Priority Filter */}
-          <div>
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl text-xs text-white glass-input bg-navy-900"
-            >
-              <option value="All">All Priorities</option>
-              <option value="Critical">Critical</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
-            </select>
-          </div>
-
-          {/* Category Filter */}
-          <div>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl text-xs text-white glass-input bg-navy-900"
-            >
-              <option value="All">All Categories</option>
-              <option value="Safety">Safety</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="IT/Cybersecurity">IT/Cybersecurity</option>
-              <option value="Accessibility">Accessibility</option>
-              <option value="Lost & Found">Lost & Found</option>
-              <option value="Facilities">Facilities</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
+      {/* Search & Filter Toolbar */}
+      <div className="flex flex-col sm:flex-row items-center gap-3 p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="relative flex-1 w-full">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search by ID, location, or issue description..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 rounded-lg glass-input text-xs"
+          />
         </div>
 
-        {/* Active filter count & clear */}
-        <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/80">
-          <span>Showing <strong className="text-white">{filteredReports.length}</strong> of {reports.length} reports</span>
-          {(searchQuery || statusFilter !== 'All' || priorityFilter !== 'All' || categoryFilter !== 'All') && (
-            <button
-              onClick={resetAllFilters}
-              className="text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
-            >
-              <X className="w-3.5 h-3.5" />
-              <span>Clear Filters</span>
-            </button>
-          )}
+        <div className="w-full sm:w-48">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-3 py-1.5 rounded-lg glass-input text-xs"
+          >
+            <option value="All">All Statuses</option>
+            <option value="Submitted">Submitted</option>
+            <option value="Under Review">Under Review</option>
+            <option value="Assigned">Assigned</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Resolved">Resolved</option>
+            <option value="Closed">Closed</option>
+          </select>
         </div>
       </div>
 
       {/* Reports List */}
-      {filteredReports.length === 0 ? (
-        <div className="p-12 rounded-2xl glass-panel text-center space-y-3">
-          <FileText className="w-10 h-10 text-slate-500 mx-auto" />
-          <h3 className="text-base font-bold text-white">No reports match your filters</h3>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Try resetting your search query or selecting "All" in the status/priority dropdowns.
-          </p>
-          <button
-            onClick={resetAllFilters}
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-white font-medium"
-          >
-            Reset Filters
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3.5">
+      {filteredReports.length > 0 ? (
+        <div className="space-y-3">
           {filteredReports.map((report) => (
             <div
               key={report.id}
-              onClick={() => setActiveReport(report)}
-              className="p-5 rounded-2xl glass-panel-interactive cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4"
+              onClick={() => setSelectedReport(report)}
+              className="p-4 sm:p-5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-900 transition shadow-sm cursor-pointer space-y-3 group"
             >
-              {/* Left Column: ID, Category, Badges, Details */}
-              <div className="space-y-2 flex-1">
+              {/* Row 1: ID, Badges, Date */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs font-bold text-blue-400 bg-blue-500/10 px-2.5 py-0.5 rounded-lg border border-blue-500/20">
+                  <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">
                     {report.id}
                   </span>
-                  <span className={`text-[10px] px-2.5 py-0.5 rounded-md border font-semibold ${getPriorityStyle(report.priority)}`}>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border uppercase ${getPriorityBadge(report.priority)}`}>
                     {report.priority}
                   </span>
-                  <span className={`text-[10px] px-2.5 py-0.5 rounded-md border font-semibold ${getStatusStyle(report.status)}`}>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${getStatusBadge(report.status)}`}>
                     {report.status}
                   </span>
-                  <span className="text-[11px] font-medium text-slate-300 bg-slate-800/80 px-2 py-0.5 rounded">
-                    {report.category}
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Category: {report.category}
                   </span>
                 </div>
 
-                <h3 className="text-sm font-bold text-white">
-                  {report.summary || report.description}
+                <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  {new Date(report.createdAt || report.created_at || Date.now()).toLocaleDateString()}
+                </span>
+              </div>
+
+              {/* Row 2: Title / Summary */}
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                  {report.summary || report.title || report.description}
                 </h3>
-
-                <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
-                  "{report.description}"
-                </p>
-
-                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 pt-1">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-slate-500" />
-                    {report.location}
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Building className="w-3 h-3 text-slate-500" />
-                    {report.department}
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3 text-slate-500" />
-                    {new Date(report.createdAt).toLocaleDateString()}
-                  </span>
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  <MapPin className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                  <span>{report.location}</span>
+                  {report.department && (
+                    <>
+                      <span>•</span>
+                      <span>{report.department}</span>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Right Column: View Inspection Details */}
-              <div className="flex items-center gap-3 self-end md:self-center">
-                <button
-                  type="button"
-                  className="px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs text-blue-300 font-semibold border border-slate-700 flex items-center gap-1.5 transition"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Inspect Timeline</span>
-                </button>
+              {/* Row 3: Admin Notes preview (if any) */}
+              {(report.adminNotes || report.admin_notes) && (
+                <div className="p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-300">
+                  <p className="font-semibold text-[11px]">Administrator Update:</p>
+                  <p className="mt-0.5 text-slate-700 dark:text-slate-300">
+                    {report.adminNotes || report.admin_notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Progress Pipeline Dots */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  {pipelineSteps.map((step, idx) => {
+                    const currentIdx = getStepIndex(report.status);
+                    const isPassed = idx <= currentIdx;
+                    return (
+                      <div key={step} className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${isPassed ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'}`} />
+                        <span className={`hidden sm:inline text-[10px] ${isPassed ? 'font-medium text-slate-800 dark:text-slate-200' : 'text-slate-400'}`}>
+                          {step}
+                        </span>
+                        {idx < pipelineSteps.length - 1 && (
+                          <span className="w-3 h-px bg-slate-200 dark:bg-slate-700 hidden sm:inline" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <span className="text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1 group-hover:translate-x-0.5 transition">
+                  <span>View Details</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </span>
               </div>
             </div>
           ))}
         </div>
+      ) : (
+        <div className="p-12 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-4 shadow-sm">
+          <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+            <FileText className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">No Reports Found</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+              {search || statusFilter !== 'All'
+                ? 'No incident reports match your current filter criteria.'
+                : "You haven't submitted any incident reports yet. Click below to file a new report."}
+            </p>
+          </div>
+          <button
+            onClick={() => setActiveTab('report')}
+            className="px-4 py-2 rounded-xl font-medium text-xs text-white bg-blue-600 hover:bg-blue-700 transition"
+          >
+            Report an Issue
+          </button>
+        </div>
       )}
 
-      {/* Detailed Report Modal with Lifecycle Timeline */}
-      {activeReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
-          <div className="bg-navy-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            {/* Modal Top */}
-            <div className="flex items-start justify-between pb-4 border-b border-slate-800">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-mono text-sm font-bold text-blue-400">{activeReport.id}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold ${getPriorityStyle(activeReport.priority)}`}>
-                    {activeReport.priority}
-                  </span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold ${getStatusStyle(activeReport.status)}`}>
-                    {activeReport.status}
-                  </span>
-                </div>
-                <h2 className="text-lg font-bold text-white">{activeReport.summary}</h2>
+      {/* Report Details Drawer / Modal */}
+      {selectedReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 sm:p-7 shadow-xl max-h-[90vh] overflow-y-auto space-y-5">
+            <button
+              onClick={() => setSelectedReport(null)}
+              className="absolute top-4 right-4 p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">
+                  {selectedReport.id}
+                </span>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border uppercase ${getPriorityBadge(selectedReport.priority)}`}>
+                  {selectedReport.priority}
+                </span>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${getStatusBadge(selectedReport.status)}`}>
+                  {selectedReport.status}
+                </span>
               </div>
-              <button
-                onClick={() => setActiveReport(null)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                {selectedReport.summary || selectedReport.title}
+              </h2>
             </div>
 
-            {/* Content Details */}
-            <div className="space-y-4 text-xs">
-              <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
-                <span className="text-slate-400 font-semibold">Reported Description</span>
-                <p className="text-slate-200 mt-1 text-sm leading-relaxed">{activeReport.description}</p>
+            {/* Location & Meta */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs">
+              <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <span><strong>Location:</strong> {selectedReport.location}</span>
               </div>
+              <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                <Building className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <span><strong>Department:</strong> {selectedReport.department || 'General Operations'}</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                <Clock className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <span><strong>Submitted:</strong> {new Date(selectedReport.createdAt || selectedReport.created_at || Date.now()).toLocaleString()}</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                <UserCheck className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <span><strong>Assigned Staff:</strong> {selectedReport.assignedStaff || selectedReport.assigned_staff || 'Pending Triage'}</span>
+              </div>
+            </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="p-3 bg-slate-800/60 rounded-xl">
-                  <span className="text-slate-400 text-[11px]">Campus Location</span>
-                  <p className="font-semibold text-white mt-0.5">{activeReport.location}</p>
-                </div>
-                <div className="p-3 bg-slate-800/60 rounded-xl">
-                  <span className="text-slate-400 text-[11px]">Responsible Dept</span>
-                  <p className="font-semibold text-white mt-0.5 truncate">{activeReport.department}</p>
-                </div>
-                <div className="p-3 bg-slate-800/60 rounded-xl">
-                  <span className="text-slate-400 text-[11px]">AI Confidence</span>
-                  <p className="font-semibold text-emerald-400 mt-0.5">{activeReport.confidence || 94}%</p>
+            {/* Student Observation */}
+            <div className="space-y-1 text-xs">
+              <p className="font-semibold text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wide">
+                Observation Details:
+              </p>
+              <p className="p-3 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 leading-relaxed">
+                "{selectedReport.description}"
+              </p>
+            </div>
+
+            {/* Official Administrator Notes */}
+            {(selectedReport.adminNotes || selectedReport.admin_notes) && (
+              <div className="space-y-1 text-xs">
+                <p className="font-semibold text-blue-600 dark:text-blue-400 uppercase text-[10px] tracking-wide">
+                  Official Administrative Notes:
+                </p>
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 text-slate-800 dark:text-slate-200 leading-relaxed">
+                  {selectedReport.adminNotes || selectedReport.admin_notes}
                 </div>
               </div>
+            )}
 
-              <div className="p-3.5 rounded-xl bg-blue-950/30 border border-blue-500/20">
-                <span className="text-blue-300 font-semibold">AI Recommended Action</span>
-                <p className="text-blue-200 mt-1 leading-relaxed">{activeReport.recommendedAction}</p>
+            {/* Resolution Details */}
+            {(selectedReport.resolutionDetails || selectedReport.resolution_details) && (
+              <div className="space-y-1 text-xs">
+                <p className="font-semibold text-emerald-600 dark:text-emerald-400 uppercase text-[10px] tracking-wide">
+                  Repair & Resolution Summary:
+                </p>
+                <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900 text-slate-800 dark:text-slate-200 leading-relaxed">
+                  {selectedReport.resolutionDetails || selectedReport.resolution_details}
+                </div>
               </div>
+            )}
 
-              {/* Lifecycle Progress Bar & Timeline */}
-              <div className="pt-2 space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                  Resolution Progress Timeline
-                </h4>
-
-                <div className="space-y-2 border-l-2 border-slate-700 pl-4 ml-2">
-                  {(activeReport.timeline || []).map((step, idx) => (
-                    <div key={idx} className="relative pb-2">
-                      <div className="absolute -left-[23px] top-1 w-3.5 h-3.5 rounded-full bg-blue-500 border-2 border-navy-900" />
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-white">{step.status}</span>
-                        <span className="text-[10px] text-slate-400">
-                          {new Date(step.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+            {/* Timeline */}
+            {selectedReport.timeline && selectedReport.timeline.length > 0 && (
+              <div className="space-y-2 text-xs">
+                <p className="font-semibold text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wide">
+                  Audit Timeline:
+                </p>
+                <div className="space-y-2 pl-2 border-l-2 border-blue-200 dark:border-blue-900">
+                  {selectedReport.timeline.map((event, idx) => (
+                    <div key={idx} className="relative pl-3 text-xs">
+                      <span className="absolute -left-[19px] top-1.5 w-2 h-2 rounded-full bg-blue-600" />
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">{event.status}</span>
+                        <span className="text-[10px] text-slate-400">{new Date(event.timestamp).toLocaleString()}</span>
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-0.5">{step.note}</p>
+                      {event.note && (
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">{event.note}</p>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Modal Bottom */}
-            <div className="pt-3 border-t border-slate-800 flex justify-end">
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end">
               <button
-                onClick={() => setActiveReport(null)}
-                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold"
+                onClick={() => setSelectedReport(null)}
+                className="px-4 py-2 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 transition"
               >
-                Close Inspector
+                Close
               </button>
             </div>
           </div>

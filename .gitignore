@@ -7,6 +7,11 @@ node_modules/
 .env.local
 .env.*.local
 *.env
+server/.env
+
+# Database files
+server/data/*.sqlite*
+server/data/*.db*
 
 # Build outputs
 dist/
